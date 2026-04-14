@@ -174,6 +174,12 @@
     .edit-msg.found { background: var(--green-l); border: 1px solid #aeddc0; color: #145229; }
     .update-btn { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 600; background: var(--gold); color: var(--white); border: none; border-radius: var(--radius); padding: 0.65rem 1.6rem; cursor: pointer; margin-top: 1rem; width: 100%; }
     .update-btn:disabled { background: #d4b87a; cursor: not-allowed; }
+
+    /* AUTOCOMPLETE */
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1.5px solid var(--blue); border-top: none; border-radius: 0 0 var(--radius) var(--radius); z-index: 100; max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .autocomplete-item { padding: 8px 12px; font-size: 0.88rem; cursor: pointer; color: var(--text); }
+    .autocomplete-item:hover { background: var(--blue-l); color: var(--blue); }
   </style>
 </head>
 <body>
@@ -856,6 +862,9 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
     document.getElementById('tab-classes').classList.toggle('active',   tab === 'classes');
     document.getElementById('tab-office').classList.toggle('active',    tab === 'office');
     document.getElementById('tab-tuckshop').classList.toggle('active',  tab === 'tuckshop');
+    if (tab === 'office') {
+      loadOfficeNames();
+    }
     if (tab === 'tuckshop') {
       // Only load products from Sheet on first visit
       if (!tuckshopInitialized) {
@@ -1599,6 +1608,47 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
     addTuckshopOrderRow();
     setTimeout(function(){ statusEl.style.display = 'none'; }, 3000);
   }
+
+
+  // ── OFFICE NAME AUTOCOMPLETE ──
+  var officeNames = [];
+
+  function loadOfficeNames() {
+    if (SCRIPT_URL === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") return;
+    fetch(SCRIPT_URL + '?action=getNames')
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if (res.result === 'success') officeNames = res.names || [];
+      })
+      .catch(function(e){ console.error(e); });
+  }
+
+  function showNameSuggestions(val) {
+    var list = document.getElementById('name-suggestions');
+    if (!val || val.length < 1) { list.style.display = 'none'; return; }
+    var matches = officeNames.filter(function(n){
+      return n.toLowerCase().indexOf(val.toLowerCase()) !== -1;
+    });
+    if (!matches.length) { list.style.display = 'none'; return; }
+    list.innerHTML = matches.map(function(n){
+      return '<div class="autocomplete-item" onclick="selectName(\'' + n.replace(/'/g,"\'") + '\')">' + n + '</div>';
+    }).join('');
+    list.style.display = 'block';
+  }
+
+  function selectName(name) {
+    document.getElementById('o-edit-name').value = name;
+    document.getElementById('name-suggestions').style.display = 'none';
+  }
+
+  // Hide suggestions when clicking outside
+  document.addEventListener('click', function(e) {
+    var wrap = document.querySelector('.autocomplete-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      var list = document.getElementById('name-suggestions');
+      if (list) list.style.display = 'none';
+    }
+  });
 
   document.getElementById('classForm').addEventListener('submit', function(e) {
     e.preventDefault();
