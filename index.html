@@ -1028,7 +1028,8 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
 
 
   // ── EDIT ORDER ──
-  var editStartRow = { c: null, o: null };
+  var editStartRow  = { c: null, o: null };
+  var editTimestamp = { c: null, o: null }; // ← guardar timestamp original de la orden
 
   function toggleEditPanel(prefix) {
     var panel = document.getElementById(prefix + '-edit-panel');
@@ -1083,7 +1084,8 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
         } else {
           msgEl.className = 'edit-msg found';
           msgEl.textContent = 'Order found — edit below and click Update Order.';
-          editStartRow[prefix] = res.startRow;
+          editStartRow[prefix]  = res.startRow;
+          editTimestamp[prefix] = res.timestamp; // ← guardar timestamp original
           // Populate edit rows
           itemsEl.innerHTML = '';
           res.rows.forEach(function(row) {
@@ -1191,7 +1193,7 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
       date:       date,
       rows:       rows,
       grandTotal: grandTotal,
-      timestamp:  new Date().toLocaleString('en-JM')
+      timestamp:  editTimestamp[prefix] // ← usar el timestamp original, NO generar uno nuevo
     };
     if (prefix === 'c') data.className = key;
     else data.name = key;
@@ -1206,7 +1208,8 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
         document.getElementById(prefix + '-edit-add').style.display = 'none';
         document.getElementById(prefix + '-edit-total-box').style.display = 'none';
         btn.style.display = 'none';
-        editStartRow[prefix] = null;
+        editStartRow[prefix]  = null;
+        editTimestamp[prefix] = null; // ← limpiar
       } else { throw new Error(result.message); }
     } catch(err) {
       msgEl.className = 'edit-msg notfound';
