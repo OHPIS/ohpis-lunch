@@ -712,7 +712,7 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
   }
 
 
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx5MplAcOSWOEV2cOQO02kwcW1W-Dpx-4MDvQP2RgEG-1ygR8uXGgqIpVClh9j7Rz4Z/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOFgdXTiXuW0j54hkQbRZNL_zCFZnFXIWnIEDsY_uzc4M56LpLx3SYYlzKer35APPy/exec";
 
   const LUNCH_TYPES_CLASS = [
     "Teachers regular","Teachers chips","Children rice and peas","Children chicken and chips",
@@ -749,7 +749,7 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
     var d = new Date();
     var utc = d.getTime() + (d.getTimezoneOffset() * 60000);
     var jamaica = new Date(utc + (-5 * 60 * 60000));
-    return jamaica.getHours() >= 23;
+    return jamaica.getHours() >= 9;
   }
 
   function applyClassesLock() {
