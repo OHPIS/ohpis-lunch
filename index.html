@@ -749,7 +749,7 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
     var d = new Date();
     var utc = d.getTime() + (d.getTimezoneOffset() * 60000);
     var jamaica = new Date(utc + (-5 * 60 * 60000));
-    return jamaica.getHours() >= 9;
+    return jamaica.getHours() >= 23;
   }
 
   function applyClassesLock() {
