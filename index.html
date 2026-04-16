@@ -508,7 +508,7 @@
           <div class="edit-result" id="t-edit-result">
             <div class="edit-msg" id="t-edit-msg"></div>
             <div id="t-edit-items"></div>
-            <button type="button" class="menu-add-btn" id="t-edit-add" style="display:none" onclick="addTuckshopEditRow('','','')">+ Add Item</button>
+            <button type="button" class="menu-add-btn" id="t-edit-add" style="display:none" onclick="addEditRow('t-edit','','','')">+ Add Item</button>
             <div class="grand-total-box" id="t-edit-total-box" style="display:none">
               <span class="grand-total-label">Updated Total</span>
               <span class="grand-total-value" id="t-edit-grand-total">J$ 0.00</span>
@@ -775,7 +775,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var d = new Date();
     var utc = d.getTime() + (d.getTimezoneOffset() * 60000);
     var jamaica = new Date(utc + (-5 * 60 * 60000));
-    return jamaica.getHours() >= ;
+    return jamaica.getHours() >= 23;
   }
 
   function applyClassesLock() {
@@ -1062,9 +1062,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var date = document.getElementById(prefix + '-edit-date').value;
     var key  = prefix === 'c'
       ? document.getElementById('c-edit-class').value
-      : prefix === 't'
-        ? document.getElementById('t-edit-class').value
-        : document.getElementById('o-edit-name').value.trim();
+      : document.getElementById('o-edit-name').value.trim();
 
     var resultEl  = document.getElementById(prefix + '-edit-result');
     var msgEl     = document.getElementById(prefix + '-edit-msg');
@@ -1075,7 +1073,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 
     if (!date || !key) {
       msgEl.className = 'edit-msg notfound';
-      msgEl.textContent = (prefix === 'o') ? 'Please enter a name and date.' : 'Please select a class and date.';
+      msgEl.textContent = prefix === 'c' ? 'Please select a class and date.' : 'Please enter a name and date.';
       resultEl.className = 'edit-result show';
       addBtn.style.display = 'none';
       totalBox.style.display = 'none';
@@ -1087,9 +1085,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     msgEl.textContent = 'Searching...';
     resultEl.className = 'edit-result show';
 
-    var scriptUrl = (prefix === 't') ? TUCKSHOP_SCRIPT_URL : SCRIPT_URL;
-    var sheetTab  = prefix === 'c' ? 'Classes' : prefix === 't' ? 'Tuckshop' : 'Office';
-    var url = scriptUrl + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) +
+    var sheetTab = prefix === 'c' ? 'Classes' : 'Office';
+    var url = SCRIPT_URL + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) +
               '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
 
     fetch(url)
@@ -1097,7 +1094,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       .then(function(res) {
         if (res.result === 'notfound') {
           msgEl.className = 'edit-msg notfound';
-          msgEl.textContent = 'No order found for this ' + (prefix === 'o' ? 'name' : 'class') + ' and date.';
+          msgEl.textContent = 'No order found for this ' + (prefix === 'c' ? 'class' : 'name') + ' and date.';
           itemsEl.innerHTML = '';
           addBtn.style.display = 'none';
           totalBox.style.display = 'none';
@@ -1107,15 +1104,13 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           msgEl.className = 'edit-msg found';
           msgEl.textContent = 'Order found — edit below and click Update Order.';
           editStartRow[prefix]  = res.startRow;
-          editTimestamp[prefix] = res.timestamp;
+          editTimestamp[prefix] = res.timestamp; // ← guardar timestamp original
+          // Populate edit rows
           itemsEl.innerHTML = '';
-          if (prefix === 't') {
-            res.rows.forEach(function(row) { addTuckshopEditRow(row.product, row.amount, row.price); });
-            calcTuckshopEditGrand();
-          } else {
-            res.rows.forEach(function(row) { addEditRow(prefix, row.lunchType, row.amount, row.price); });
-            calcEditGrand(prefix);
-          }
+          res.rows.forEach(function(row) {
+            addEditRow(prefix, row.lunchType, row.amount, row.price);
+          });
+          calcEditGrand(prefix);
           addBtn.style.display = 'block';
           totalBox.style.display = 'flex';
           updateBtn.style.display = 'block';
@@ -1126,62 +1121,6 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         msgEl.textContent = 'Error searching. Please try again.';
         console.error(err);
       });
-  }
-
-  var tuckshopEditCounter = 0;
-  function addTuckshopEditRow(selectedProduct, selectedAmount, selectedPrice) {
-    tuckshopEditCounter++;
-    var id  = 't-erow-' + tuckshopEditCounter;
-    var div = document.createElement('div');
-    div.className = 'item-row';
-    div.id = id;
-    var opts = '<option value="">— Select —</option>' +
-      tuckshopProducts.map(function(p) {
-        return '<option value="' + p.price + '"' + (p.name === selectedProduct ? ' selected' : '') + '>' + p.name + '</option>';
-      }).join('');
-    var priceDisplay = document.createElement('input');
-    priceDisplay.type = 'text'; priceDisplay.readOnly = true;
-    priceDisplay.style.cssText = 'background:var(--bg);cursor:default;';
-    priceDisplay.value = selectedPrice ? 'J$ ' + selectedPrice : '';
-    var sel = document.createElement('select');
-    sel.innerHTML = opts;
-    // Set value to match selectedPrice
-    if (selectedPrice) sel.value = String(selectedPrice);
-    sel.onchange = function() {
-      priceDisplay.value = this.value ? 'J$ ' + this.value : '';
-      calcTuckshopEditGrand();
-    };
-    var amtInput = document.createElement('input');
-    amtInput.type = 'number'; amtInput.min = '1'; amtInput.max = '999';
-    amtInput.placeholder = '0'; amtInput.value = selectedAmount || '';
-    amtInput.oninput = calcTuckshopEditGrand;
-    var subtotal = document.createElement('span');
-    subtotal.className = 'item-total'; subtotal.textContent = 'J$ 0';
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button'; removeBtn.className = 'btn-remove'; removeBtn.textContent = '✕';
-    removeBtn.onclick = function() { document.getElementById(id).remove(); calcTuckshopEditGrand(); };
-    div.appendChild(sel); div.appendChild(amtInput);
-    div.appendChild(priceDisplay); div.appendChild(subtotal); div.appendChild(removeBtn);
-    document.getElementById('t-edit-items').appendChild(div);
-    calcTuckshopEditGrand();
-  }
-
-  function calcTuckshopEditGrand() {
-    var grand = 0;
-    var container = document.getElementById('t-edit-items');
-    if (!container) return;
-    container.querySelectorAll('.item-row').forEach(function(row) {
-      var sel   = row.querySelector('select');
-      var input = row.querySelector('input[type="number"]');
-      var price = parseFloat(sel ? sel.value : 0) || 0;
-      var amt   = parseFloat(input ? input.value : 0) || 0;
-      var sub   = amt * price;
-      grand += sub;
-      var s = row.querySelector('.item-total');
-      if (s) s.textContent = 'J$ ' + sub.toLocaleString('en-JM');
-    });
-    var totalEl = document.getElementById('t-edit-grand-total');
-    if (totalEl) totalEl.textContent = 'J$ ' + grand.toLocaleString('en-JM', {minimumFractionDigits:2});
   }
 
   var editRowCounter = 0;
@@ -1236,36 +1175,23 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var date     = document.getElementById(prefix + '-edit-date').value;
     var key      = prefix === 'c'
       ? document.getElementById('c-edit-class').value
-      : prefix === 't'
-        ? document.getElementById('t-edit-class').value
-        : document.getElementById('o-edit-name').value.trim();
-    var sheetTab  = prefix === 'c' ? 'Classes' : prefix === 't' ? 'Tuckshop' : 'Office';
-    var scriptUrl = prefix === 't' ? TUCKSHOP_SCRIPT_URL : SCRIPT_URL;
+      : document.getElementById('o-edit-name').value.trim();
+    var sheetTab = prefix === 'c' ? 'Classes' : 'Office';
 
     // Collect rows
     var rows = [];
     var valid = true;
     document.getElementById(prefix + '-edit-items').querySelectorAll('.item-row').forEach(function(row) {
-      if (prefix === 't') {
-        var sel     = row.querySelector('select');
-        var input   = row.querySelector('input[type="number"]');
-        var product = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
-        var price   = parseFloat(sel ? sel.value : 0) || 0;
-        var amt     = parseFloat(input ? input.value : 0) || 0;
-        if (!product || amt <= 0) { valid = false; }
-        else { rows.push({ product: product, amount: amt, price: price, total: amt * price }); }
-      } else {
-        var selects   = row.querySelectorAll('select');
-        var input     = row.querySelector('input');
-        var lunchType = selects[0].value;
-        var amt       = parseFloat(input.value)      || 0;
-        var price     = parseFloat(selects[1].value) || 0;
-        selects[0].style.borderColor = lunchType ? '' : '#B22234';
-        input.style.borderColor      = amt > 0   ? '' : '#B22234';
-        selects[1].style.borderColor = price > 0 ? '' : '#B22234';
-        if (!lunchType || amt <= 0 || price <= 0) { valid = false; }
-        else { rows.push({ lunchType: lunchType, amount: amt, price: price, total: amt * price }); }
-      }
+      var selects   = row.querySelectorAll('select');
+      var input     = row.querySelector('input');
+      var lunchType = selects[0].value;
+      var amt       = parseFloat(input.value)      || 0;
+      var price     = parseFloat(selects[1].value) || 0;
+      selects[0].style.borderColor = lunchType ? '' : '#B22234';
+      input.style.borderColor      = amt > 0   ? '' : '#B22234';
+      selects[1].style.borderColor = price > 0 ? '' : '#B22234';
+      if (!lunchType || amt <= 0 || price <= 0) { valid = false; }
+      else { rows.push({ lunchType: lunchType, amount: amt, price: price, total: amt * price }); }
     });
 
     if (!valid || rows.length === 0) {
@@ -1288,11 +1214,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       grandTotal: grandTotal,
       timestamp:  editTimestamp[prefix] // ← usar el timestamp original, NO generar uno nuevo
     };
-    if (prefix === 'c' || prefix === 't') data.className = key;
+    if (prefix === 'c') data.className = key;
     else data.name = key;
 
     try {
-      var response = await fetch(scriptUrl, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } });
+      var response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } });
       var result   = await response.json();
       if (result.result === 'success') {
         msgEl.className = 'edit-msg found';
