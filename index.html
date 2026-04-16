@@ -1075,9 +1075,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 
     if (!date || !key) {
       msgEl.className = 'edit-msg notfound';
-      msgEl.textContent = prefix === 'c' ? 'Please select a class and date.'
-        : prefix === 't' ? 'Please select a class and date.'
-        : 'Please enter a name and date.';
+      msgEl.textContent = (prefix === 'o') ? 'Please enter a name and date.' : 'Please select a class and date.';
       resultEl.className = 'edit-result show';
       addBtn.style.display = 'none';
       totalBox.style.display = 'none';
@@ -1089,7 +1087,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     msgEl.textContent = 'Searching...';
     resultEl.className = 'edit-result show';
 
-    var scriptUrl = prefix === 't' ? TUCKSHOP_SCRIPT_URL : SCRIPT_URL;
+    var scriptUrl = (prefix === 't') ? TUCKSHOP_SCRIPT_URL : SCRIPT_URL;
     var sheetTab  = prefix === 'c' ? 'Classes' : prefix === 't' ? 'Tuckshop' : 'Office';
     var url = scriptUrl + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) +
               '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
@@ -1111,15 +1109,13 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           editStartRow[prefix]  = res.startRow;
           editTimestamp[prefix] = res.timestamp;
           itemsEl.innerHTML = '';
-          res.rows.forEach(function(row) {
-            if (prefix === 't') {
-              addTuckshopEditRow(row.product, row.amount, row.price);
-            } else {
-              addEditRow(prefix, row.lunchType, row.amount, row.price);
-            }
-          });
-          if (prefix === 't') calcTuckshopEditGrand();
-          else calcEditGrand(prefix);
+          if (prefix === 't') {
+            res.rows.forEach(function(row) { addTuckshopEditRow(row.product, row.amount, row.price); });
+            calcTuckshopEditGrand();
+          } else {
+            res.rows.forEach(function(row) { addEditRow(prefix, row.lunchType, row.amount, row.price); });
+            calcEditGrand(prefix);
+          }
           addBtn.style.display = 'block';
           totalBox.style.display = 'flex';
           updateBtn.style.display = 'block';
@@ -1132,43 +1128,6 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       });
   }
 
-    fetch(url)
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result === 'notfound') {
-          msgEl.className = 'edit-msg notfound';
-          msgEl.textContent = 'No order found for this ' + (prefix === 'c' ? 'class' : 'name') + ' and date.';
-          itemsEl.innerHTML = '';
-          addBtn.style.display = 'none';
-          totalBox.style.display = 'none';
-          updateBtn.style.display = 'none';
-          editStartRow[prefix] = null;
-        } else {
-          msgEl.className = 'edit-msg found';
-          msgEl.textContent = 'Order found — edit below and click Update Order.';
-          editStartRow[prefix]  = res.startRow;
-          editTimestamp[prefix] = res.timestamp; // ← guardar timestamp original
-          // Populate edit rows
-          itemsEl.innerHTML = '';
-          res.rows.forEach(function(row) {
-            addEditRow(prefix, row.lunchType, row.amount, row.price);
-          });
-          calcEditGrand(prefix);
-          addBtn.style.display = 'block';
-          totalBox.style.display = 'flex';
-          updateBtn.style.display = 'block';
-        }
-      })
-      .catch(function(err) {
-        msgEl.className = 'edit-msg notfound';
-        msgEl.textContent = 'Error searching. Please try again.';
-        console.error(err);
-      });
-  }
-
-  var editRowCounter = 0;
-
-  // ── TUCKSHOP EDIT ROWS (uses tuckshopProducts for dropdown) ──
   var tuckshopEditCounter = 0;
   function addTuckshopEditRow(selectedProduct, selectedAmount, selectedPrice) {
     tuckshopEditCounter++;
@@ -1180,23 +1139,30 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       tuckshopProducts.map(function(p) {
         return '<option value="' + p.price + '"' + (p.name === selectedProduct ? ' selected' : '') + '>' + p.name + '</option>';
       }).join('');
-    div.innerHTML = [
-      '<select onchange="calcTuckshopEditGrand()">' + opts + '</select>',
-      '<input type="number" min="1" max="999" placeholder="0" value="' + (selectedAmount || '') + '" oninput="calcTuckshopEditGrand()" />',
-      '<input type="text" readonly value="' + (selectedPrice ? 'J$ ' + selectedPrice : '') + '" style="background:var(--bg);cursor:default;" />',
-      '<span class="item-total">J$ 0</span>',
-      '<button type="button" class="btn-remove" onclick="document.getElementById(\'' + id + '\').remove(); calcTuckshopEditGrand()">✕</button>'
-    ].join('');
-    document.getElementById('t-edit-items').appendChild(div);
-    // Set price display from selected product
-    var sel = div.querySelector('select');
-    if (sel.value) {
-      div.querySelectorAll('input')[1].value = 'J$ ' + sel.value;
-    }
+    var priceDisplay = document.createElement('input');
+    priceDisplay.type = 'text'; priceDisplay.readOnly = true;
+    priceDisplay.style.cssText = 'background:var(--bg);cursor:default;';
+    priceDisplay.value = selectedPrice ? 'J$ ' + selectedPrice : '';
+    var sel = document.createElement('select');
+    sel.innerHTML = opts;
+    // Set value to match selectedPrice
+    if (selectedPrice) sel.value = String(selectedPrice);
     sel.onchange = function() {
-      div.querySelectorAll('input')[1].value = this.value ? 'J$ ' + this.value : '';
+      priceDisplay.value = this.value ? 'J$ ' + this.value : '';
       calcTuckshopEditGrand();
     };
+    var amtInput = document.createElement('input');
+    amtInput.type = 'number'; amtInput.min = '1'; amtInput.max = '999';
+    amtInput.placeholder = '0'; amtInput.value = selectedAmount || '';
+    amtInput.oninput = calcTuckshopEditGrand;
+    var subtotal = document.createElement('span');
+    subtotal.className = 'item-total'; subtotal.textContent = 'J$ 0';
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button'; removeBtn.className = 'btn-remove'; removeBtn.textContent = '✕';
+    removeBtn.onclick = function() { document.getElementById(id).remove(); calcTuckshopEditGrand(); };
+    div.appendChild(sel); div.appendChild(amtInput);
+    div.appendChild(priceDisplay); div.appendChild(subtotal); div.appendChild(removeBtn);
+    document.getElementById('t-edit-items').appendChild(div);
     calcTuckshopEditGrand();
   }
 
@@ -1211,12 +1177,14 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       var amt   = parseFloat(input ? input.value : 0) || 0;
       var sub   = amt * price;
       grand += sub;
-      var subtotalEl = row.querySelector('.item-total');
-      if (subtotalEl) subtotalEl.textContent = 'J$ ' + sub.toLocaleString('en-JM');
+      var s = row.querySelector('.item-total');
+      if (s) s.textContent = 'J$ ' + sub.toLocaleString('en-JM');
     });
     var totalEl = document.getElementById('t-edit-grand-total');
     if (totalEl) totalEl.textContent = 'J$ ' + grand.toLocaleString('en-JM', {minimumFractionDigits:2});
   }
+
+  var editRowCounter = 0;
 
   function addEditRow(prefix, selectedLunch, selectedAmount, selectedPrice) {
     editRowCounter++;
@@ -1271,7 +1239,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       : prefix === 't'
         ? document.getElementById('t-edit-class').value
         : document.getElementById('o-edit-name').value.trim();
-    var sheetTab = prefix === 'c' ? 'Classes' : prefix === 't' ? 'Tuckshop' : 'Office';
+    var sheetTab  = prefix === 'c' ? 'Classes' : prefix === 't' ? 'Tuckshop' : 'Office';
     var scriptUrl = prefix === 't' ? TUCKSHOP_SCRIPT_URL : SCRIPT_URL;
 
     // Collect rows
@@ -1279,14 +1247,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var valid = true;
     document.getElementById(prefix + '-edit-items').querySelectorAll('.item-row').forEach(function(row) {
       if (prefix === 't') {
-        // Tuckshop: select (product+price) + number input
-        var sel   = row.querySelector('select');
-        var input = row.querySelector('input[type="number"]');
+        var sel     = row.querySelector('select');
+        var input   = row.querySelector('input[type="number"]');
         var product = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
         var price   = parseFloat(sel ? sel.value : 0) || 0;
         var amt     = parseFloat(input ? input.value : 0) || 0;
-        if (sel)   sel.style.borderColor   = product ? '' : '#B22234';
-        if (input) input.style.borderColor = amt > 0  ? '' : '#B22234';
         if (!product || amt <= 0) { valid = false; }
         else { rows.push({ product: product, amount: amt, price: price, total: amt * price }); }
       } else {
@@ -1321,7 +1286,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       date:       date,
       rows:       rows,
       grandTotal: grandTotal,
-      timestamp:  editTimestamp[prefix]
+      timestamp:  editTimestamp[prefix] // ← usar el timestamp original, NO generar uno nuevo
     };
     if (prefix === 'c' || prefix === 't') data.className = key;
     else data.name = key;
