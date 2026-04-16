@@ -1316,6 +1316,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         return '<div class="menu-item-chip"><span class="menu-item-name">' + p.name + stockInfo + '</span>' +
                '<span class="menu-item-price">J$ ' + p.price + '</span></div>';
       }).join('') + '</div>';
+
+    // Rebuild order dropdowns with the now-loaded products
+    rebuildTuckshopOrderDropdowns();
   }
 
   function loadTuckshopEditor() {
