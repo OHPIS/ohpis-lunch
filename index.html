@@ -415,8 +415,21 @@
           <input type="date" id="tuckshop-date" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.75rem;width:100%;outline:none;"/>
         </div>
         <div style="margin-bottom:1rem;">
-          <label style="font-size:0.82rem;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Patties available</label>
-          <input type="number" id="tuckshop-patties-stock" min="0" placeholder="e.g. 50" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.75rem;width:100%;outline:none;"/>
+          <label style="font-size:0.82rem;font-weight:500;color:var(--muted);display:block;margin-bottom:8px;">Patties available</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div>
+              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Beef Patty</label>
+              <input type="number" id="tuckshop-stock-beef" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Cheese Patty</label>
+              <input type="number" id="tuckshop-stock-cheese" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Chicken Patty</label>
+              <input type="number" id="tuckshop-stock-chicken" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
+            </div>
+          </div>
         </div>
         <div style="margin-bottom:0.5rem;">
           <label style="font-size:0.82rem;font-weight:500;color:var(--muted);">Products &amp; Prices</label>
@@ -460,7 +473,6 @@
           </div>
           <div id="t-items"></div>
           <button type="button" class="btn-add-row" onclick="addTuckshopOrderRow()">+ Add Item</button>
-          <div id="t-stock-warning" style="display:none;margin-top:8px;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:8px;padding:8px 12px;font-size:0.85rem;"></div>
         </div>
         <div class="grand-total-box" style="margin-top:1rem;">
           <span class="grand-total-label">Order Total</span>
@@ -528,9 +540,9 @@
   var PW_TUCKSHOP      = 'tuckshop2026';
   var PW_TUCKSHOP_EDIT = 'Tuckshop2026';
 
-const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
+const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEbyjkhmY3jUI-vsDrPDV-jXn0SgvXTO1z_zYf4r-_zvKSSepwRDecIlBeDGg/exec";
   var tuckshopProducts    = [];
-  var tuckshopStock      = { Patty: 0 };
+  var tuckshopStock      = { 'Beef Patty': 0, 'Cheese Patty': 0, 'Chicken Patty': 0 };
   var tuckshopDate        = '';
   var tuckshopInitialized = false;
 
@@ -1291,8 +1303,8 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
     }
     display.innerHTML = '<div class="menu-items-list">' +
       tuckshopProducts.map(function(p) {
-        var stockInfo = p.name === 'Patty' && tuckshopStock['Patty'] !== undefined
-          ? ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock['Patty'] + ' left)</span>' : '';
+        var stockInfo = (p.name === 'Beef Patty' || p.name === 'Cheese Patty' || p.name === 'Chicken Patty') && tuckshopStock[p.name] !== undefined
+          ? ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock[p.name] + ' left)</span>' : '';
         return '<div class="menu-item-chip"><span class="menu-item-name">' + p.name + stockInfo + '</span>' +
                '<span class="menu-item-price">J$ ' + p.price + '</span></div>';
       }).join('') + '</div>';
@@ -1300,12 +1312,16 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
 
   function loadTuckshopEditor() {
     document.getElementById('tuckshop-date').value = tuckshopDate || getJamaicaToday();
-    document.getElementById('tuckshop-patties-stock').value = tuckshopStock['Patty'] || '';
+    document.getElementById('tuckshop-stock-beef').value    = tuckshopStock['Beef Patty']    || '';
+    document.getElementById('tuckshop-stock-cheese').value  = tuckshopStock['Cheese Patty']  || '';
+    document.getElementById('tuckshop-stock-chicken').value = tuckshopStock['Chicken Patty'] || '';
     document.getElementById('tuckshop-product-rows').innerHTML = '';
     if (tuckshopProducts.length) {
       tuckshopProducts.forEach(function(p){ addTuckshopProductRow(p.name, p.price); });
     } else {
-      addTuckshopProductRow('Patty', '');
+      addTuckshopProductRow('Beef Patty', '');
+      addTuckshopProductRow('Cheese Patty', '');
+      addTuckshopProductRow('Chicken Patty', '');
       addTuckshopProductRow('Bun and Cheese', '');
     }
   }
@@ -1334,8 +1350,9 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
   }
 
   function saveTuckshopInventory() {
-    var stock = parseInt(document.getElementById('tuckshop-patties-stock').value) || 0;
-    tuckshopStock['Patty'] = stock;
+    tuckshopStock['Beef Patty']    = parseInt(document.getElementById('tuckshop-stock-beef').value)    || 0;
+    tuckshopStock['Cheese Patty']  = parseInt(document.getElementById('tuckshop-stock-cheese').value)  || 0;
+    tuckshopStock['Chicken Patty'] = parseInt(document.getElementById('tuckshop-stock-chicken').value) || 0;
     renderTuckshopProducts();
   }
 
@@ -1350,7 +1367,6 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
       if (n) products.push({name: n, price: p});
     }
 
-    var stock = parseInt(document.getElementById('tuckshop-patties-stock').value) || 0;
     var errEl = document.getElementById('tuckshop-save-error');
 
     if (!date) {
@@ -1367,7 +1383,9 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
 
     tuckshopDate     = date;
     tuckshopProducts = products;
-    tuckshopStock['Patty'] = stock;
+    tuckshopStock['Beef Patty']    = parseInt(document.getElementById('tuckshop-stock-beef').value)    || 0;
+    tuckshopStock['Cheese Patty']  = parseInt(document.getElementById('tuckshop-stock-cheese').value)  || 0;
+    tuckshopStock['Chicken Patty'] = parseInt(document.getElementById('tuckshop-stock-chicken').value) || 0;
     renderTuckshopProducts();
     rebuildTuckshopOrderDropdowns();
     document.getElementById('tuckshop-editor').classList.remove('open');
@@ -1398,10 +1416,13 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
     if (row) {
       var sel = row.querySelector('select');
       var inp = row.querySelector('input');
-      if (sel && sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].text === 'Patty') {
-        var amt = parseInt(inp.value) || 0;
-        tuckshopStock['Patty'] = (tuckshopStock['Patty'] || 0) + amt;
-        renderTuckshopProducts();
+      if (sel && sel.options[sel.selectedIndex]) {
+        var productName = sel.options[sel.selectedIndex].text;
+        if (productName === 'Beef Patty' || productName === 'Cheese Patty' || productName === 'Chicken Patty') {
+          var amt = parseInt(inp.value) || 0;
+          tuckshopStock[productName] = (tuckshopStock[productName] || 0) + amt;
+          renderTuckshopProducts();
+        }
       }
       row.remove();
     }
@@ -1415,11 +1436,6 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
       var input = row.querySelector('input[type="number"]');
       var price = parseFloat(sel.value) || 0;
       var amt   = parseFloat(input.value) || 0;
-
-      // Deduct patties from stock as user types
-      if (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].text === 'Patty') {
-        // handled on submit
-      }
 
       var sub = price * amt;
       grand += sub;
@@ -1498,43 +1514,18 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
 
   function calcTuckshopTotal() {
     var grand = 0;
-    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
-    // Acumular cantidades pedidas por tipo de patty en esta orden
-    var requested = {};
     document.getElementById('t-items').querySelectorAll('.item-row').forEach(function(row) {
       var sel   = row.querySelector('select');
       var input = row.querySelector('input[type="number"]');
       var price = parseFloat(sel ? sel.value : 0) || 0;
       var amt   = parseFloat(input ? input.value : 0) || 0;
-      var name  = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
       var sub   = price * amt;
       grand += sub;
       var subtotalEl = row.querySelector('.item-total');
       if (subtotalEl) subtotalEl.textContent = 'J$ ' + sub.toLocaleString('en-JM');
-      if (PATTY_TYPES.indexOf(name) !== -1 && amt > 0) {
-        requested[name] = (requested[name] || 0) + amt;
-      }
     });
     var totalEl = document.getElementById('t-grand-total');
     if (totalEl) totalEl.textContent = 'J$ ' + grand.toLocaleString('en-JM', {minimumFractionDigits:2});
-
-    // Validar stock de patties
-    var warnEl = document.getElementById('t-stock-warning');
-    var warnings = [];
-    PATTY_TYPES.forEach(function(pt) {
-      if (requested[pt]) {
-        var available = tuckshopStock[pt] !== undefined ? tuckshopStock[pt] : null;
-        if (available !== null && requested[pt] > available) {
-          warnings.push('⚠️ ' + pt + ': requesting ' + requested[pt] + ' but only ' + available + ' left');
-        }
-      }
-    });
-    if (warnings.length) {
-      warnEl.innerHTML = warnings.join('<br>');
-      warnEl.style.display = 'block';
-    } else {
-      warnEl.style.display = 'none';
-    }
   }
 
   function rebuildTuckshopOrderDropdowns() {
@@ -1549,15 +1540,6 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
     var btn      = this.querySelector('button[type="submit"]');
     statusEl.className = 'status-msg';
     statusEl.style.display = 'none';
-
-    // Bloquear si hay stock excedido
-    var warnEl = document.getElementById('t-stock-warning');
-    if (warnEl && warnEl.style.display !== 'none') {
-      statusEl.className = 'status-msg error';
-      statusEl.textContent = 'Please fix the patty stock issue before submitting.';
-      statusEl.style.display = 'block';
-      return;
-    }
 
     var date      = document.getElementById('t-date').value;
     var className = document.getElementById('t-class').value;
@@ -1591,8 +1573,8 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
 
     // Deduct patties from stock
     rows.forEach(function(r) {
-      if (r.product === 'Patty') {
-        tuckshopStock['Patty'] = Math.max(0, (tuckshopStock['Patty'] || 0) - r.amount);
+      if (r.product === 'Beef Patty' || r.product === 'Cheese Patty' || r.product === 'Chicken Patty') {
+        tuckshopStock[r.product] = Math.max(0, (tuckshopStock[r.product] || 0) - r.amount);
       }
     });
     renderTuckshopProducts();
