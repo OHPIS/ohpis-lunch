@@ -259,7 +259,6 @@
               <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
               <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
               <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-              <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
               <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
             </select>
           </div>
@@ -303,8 +302,7 @@
                 <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
                 <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
                 <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
-              <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
+                <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
               </select>
             </div>
             <div>
@@ -417,8 +415,21 @@
           <input type="date" id="tuckshop-date" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.75rem;width:100%;outline:none;"/>
         </div>
         <div style="margin-bottom:1rem;">
-          <label style="font-size:0.82rem;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Patties available</label>
-          <input type="number" id="tuckshop-patties-stock" min="0" placeholder="e.g. 50" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.75rem;width:100%;outline:none;"/>
+          <label style="font-size:0.82rem;font-weight:500;color:var(--muted);display:block;margin-bottom:8px;">Patties available</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div>
+              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Beef Patty</label>
+              <input type="number" id="tuckshop-stock-beef" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Cheese Patty</label>
+              <input type="number" id="tuckshop-stock-cheese" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Chicken Patty</label>
+              <input type="number" id="tuckshop-stock-chicken" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
+            </div>
+          </div>
         </div>
         <div style="margin-bottom:0.5rem;">
           <label style="font-size:0.82rem;font-weight:500;color:var(--muted);">Products &amp; Prices</label>
@@ -452,7 +463,6 @@
               <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
               <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
               <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-              <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
               <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
             </select>
           </div>
@@ -484,8 +494,7 @@
                 <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
                 <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
                 <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
-              <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
+                <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
               </select>
             </div>
             <div><label>Date</label><input type="date" id="t-edit-date"/></div>
@@ -533,7 +542,7 @@
 
 const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
   var tuckshopProducts    = [];
-  var tuckshopStock      = { Patty: 0 };
+  var tuckshopStock      = { 'Beef Patty': 0, 'Cheese Patty': 0, 'Chicken Patty': 0 };
   var tuckshopDate        = '';
   var tuckshopInitialized = false;
 
@@ -1294,8 +1303,8 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
     }
     display.innerHTML = '<div class="menu-items-list">' +
       tuckshopProducts.map(function(p) {
-        var stockInfo = p.name === 'Patty' && tuckshopStock['Patty'] !== undefined
-          ? ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock['Patty'] + ' left)</span>' : '';
+        var stockInfo = (p.name === 'Beef Patty' || p.name === 'Cheese Patty' || p.name === 'Chicken Patty') && tuckshopStock[p.name] !== undefined
+          ? ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock[p.name] + ' left)</span>' : '';
         return '<div class="menu-item-chip"><span class="menu-item-name">' + p.name + stockInfo + '</span>' +
                '<span class="menu-item-price">J$ ' + p.price + '</span></div>';
       }).join('') + '</div>';
@@ -1303,12 +1312,16 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
 
   function loadTuckshopEditor() {
     document.getElementById('tuckshop-date').value = tuckshopDate || getJamaicaToday();
-    document.getElementById('tuckshop-patties-stock').value = tuckshopStock['Patty'] || '';
+    document.getElementById('tuckshop-stock-beef').value    = tuckshopStock['Beef Patty']    || '';
+    document.getElementById('tuckshop-stock-cheese').value  = tuckshopStock['Cheese Patty']  || '';
+    document.getElementById('tuckshop-stock-chicken').value = tuckshopStock['Chicken Patty'] || '';
     document.getElementById('tuckshop-product-rows').innerHTML = '';
     if (tuckshopProducts.length) {
       tuckshopProducts.forEach(function(p){ addTuckshopProductRow(p.name, p.price); });
     } else {
-      addTuckshopProductRow('Patty', '');
+      addTuckshopProductRow('Beef Patty', '');
+      addTuckshopProductRow('Cheese Patty', '');
+      addTuckshopProductRow('Chicken Patty', '');
       addTuckshopProductRow('Bun and Cheese', '');
     }
   }
@@ -1337,8 +1350,9 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
   }
 
   function saveTuckshopInventory() {
-    var stock = parseInt(document.getElementById('tuckshop-patties-stock').value) || 0;
-    tuckshopStock['Patty'] = stock;
+    tuckshopStock['Beef Patty']    = parseInt(document.getElementById('tuckshop-stock-beef').value)    || 0;
+    tuckshopStock['Cheese Patty']  = parseInt(document.getElementById('tuckshop-stock-cheese').value)  || 0;
+    tuckshopStock['Chicken Patty'] = parseInt(document.getElementById('tuckshop-stock-chicken').value) || 0;
     renderTuckshopProducts();
   }
 
@@ -1353,7 +1367,6 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
       if (n) products.push({name: n, price: p});
     }
 
-    var stock = parseInt(document.getElementById('tuckshop-patties-stock').value) || 0;
     var errEl = document.getElementById('tuckshop-save-error');
 
     if (!date) {
@@ -1370,7 +1383,9 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
 
     tuckshopDate     = date;
     tuckshopProducts = products;
-    tuckshopStock['Patty'] = stock;
+    tuckshopStock['Beef Patty']    = parseInt(document.getElementById('tuckshop-stock-beef').value)    || 0;
+    tuckshopStock['Cheese Patty']  = parseInt(document.getElementById('tuckshop-stock-cheese').value)  || 0;
+    tuckshopStock['Chicken Patty'] = parseInt(document.getElementById('tuckshop-stock-chicken').value) || 0;
     renderTuckshopProducts();
     rebuildTuckshopOrderDropdowns();
     document.getElementById('tuckshop-editor').classList.remove('open');
@@ -1401,10 +1416,13 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
     if (row) {
       var sel = row.querySelector('select');
       var inp = row.querySelector('input');
-      if (sel && sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].text === 'Patty') {
-        var amt = parseInt(inp.value) || 0;
-        tuckshopStock['Patty'] = (tuckshopStock['Patty'] || 0) + amt;
-        renderTuckshopProducts();
+      if (sel && sel.options[sel.selectedIndex]) {
+        var productName = sel.options[sel.selectedIndex].text;
+        if (productName === 'Beef Patty' || productName === 'Cheese Patty' || productName === 'Chicken Patty') {
+          var amt = parseInt(inp.value) || 0;
+          tuckshopStock[productName] = (tuckshopStock[productName] || 0) + amt;
+          renderTuckshopProducts();
+        }
       }
       row.remove();
     }
@@ -1418,11 +1436,6 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
       var input = row.querySelector('input[type="number"]');
       var price = parseFloat(sel.value) || 0;
       var amt   = parseFloat(input.value) || 0;
-
-      // Deduct patties from stock as user types
-      if (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].text === 'Patty') {
-        // handled on submit
-      }
 
       var sub = price * amt;
       grand += sub;
@@ -1560,8 +1573,8 @@ const TUCKSHOP_SCRIPT_URL = "YOUR_TUCKSHOP_SCRIPT_URL_HERE";
 
     // Deduct patties from stock
     rows.forEach(function(r) {
-      if (r.product === 'Patty') {
-        tuckshopStock['Patty'] = Math.max(0, (tuckshopStock['Patty'] || 0) - r.amount);
+      if (r.product === 'Beef Patty' || r.product === 'Cheese Patty' || r.product === 'Chicken Patty') {
+        tuckshopStock[r.product] = Math.max(0, (tuckshopStock[r.product] || 0) - r.amount);
       }
     });
     renderTuckshopProducts();
