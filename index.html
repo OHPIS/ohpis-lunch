@@ -259,6 +259,7 @@
               <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
               <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
               <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
+              <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
               <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
             </select>
           </div>
@@ -302,7 +303,8 @@
                 <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
                 <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
                 <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-                <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
+                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
+              <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
               </select>
             </div>
             <div>
@@ -463,6 +465,7 @@
               <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
               <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
               <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
+              <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
               <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
             </select>
           </div>
@@ -473,6 +476,7 @@
           </div>
           <div id="t-items"></div>
           <button type="button" class="btn-add-row" onclick="addTuckshopOrderRow()">+ Add Item</button>
+          <div id="t-stock-warning" style="display:none;margin-top:8px;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:8px;padding:8px 12px;font-size:0.85rem;line-height:1.6;"></div>
         </div>
         <div class="grand-total-box" style="margin-top:1rem;">
           <span class="grand-total-label">Order Total</span>
@@ -494,7 +498,8 @@
                 <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
                 <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
                 <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-                <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
+                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
+              <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
               </select>
             </div>
             <div><label>Date</label><input type="date" id="t-edit-date"/></div>
@@ -879,8 +884,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       loadOfficeNames();
     }
     if (tab === 'tuckshop') {
-      // Only load products from Sheet on first visit
-      if (!tuckshopInitialized) {
+      // Recargar productos si no están cargados o si la fecha no es hoy
+      if (!tuckshopInitialized || tuckshopDate !== getJamaicaToday()) {
         tuckshopInitialized = true;
         loadTuckshopProducts();
       }
@@ -1430,18 +1435,46 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
   function calcTuckshopTotal() {
+    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
     var grand = 0;
+    var requested = {}; // acumular cantidades pedidas por tipo de patty
+
     document.getElementById('t-items').querySelectorAll('.item-row').forEach(function(row) {
       var sel   = row.querySelector('select');
       var input = row.querySelector('input[type="number"]');
       var price = parseFloat(sel.value) || 0;
       var amt   = parseFloat(input.value) || 0;
+      var name  = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
 
       var sub = price * amt;
       grand += sub;
       row.querySelector('.item-total').textContent = 'J$ ' + sub.toLocaleString('en-JM');
+
+      // Acumular patties pedidas
+      if (PATTY_TYPES.indexOf(name) !== -1 && amt > 0) {
+        requested[name] = (requested[name] || 0) + amt;
+      }
     });
+
     document.getElementById('t-grand-total').textContent = 'J$ ' + grand.toLocaleString('en-JM', {minimumFractionDigits:2});
+
+    // Validar stock de patties
+    var warnEl = document.getElementById('t-stock-warning');
+    var warnings = [];
+    PATTY_TYPES.forEach(function(pt) {
+      if (requested[pt]) {
+        var available = (tuckshopStock[pt] !== undefined) ? tuckshopStock[pt] : null;
+        if (available !== null && requested[pt] > available) {
+          warnings.push('⚠️ <strong>' + pt + '</strong>: you requested ' + requested[pt] + ' but only <strong>' + available + ' left</strong>');
+        }
+      }
+    });
+    if (warnings.length) {
+      warnEl.innerHTML = warnings.join('<br>');
+      warnEl.style.display = 'block';
+    } else {
+      warnEl.style.display = 'none';
+    }
   }
 
   function rebuildTuckshopOrderDropdowns() {
@@ -1540,6 +1573,15 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var btn      = this.querySelector('button[type="submit"]');
     statusEl.className = 'status-msg';
     statusEl.style.display = 'none';
+
+    // Bloquear si hay exceso de stock de patties
+    var warnEl = document.getElementById('t-stock-warning');
+    if (warnEl && warnEl.style.display !== 'none') {
+      statusEl.className = 'status-msg error';
+      statusEl.textContent = 'Please fix the patty quantities before submitting.';
+      statusEl.style.display = 'block';
+      return;
+    }
 
     var date      = document.getElementById('t-date').value;
     var className = document.getElementById('t-class').value;
