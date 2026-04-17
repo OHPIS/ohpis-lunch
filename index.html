@@ -239,7 +239,7 @@
     <div class="card">
       <form id="classForm" novalidate>
         <div id="c-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
-          🔒 Class orders are closed after 9:00 AM. No new orders can be submitted.
+          🔒 <span id="c-lock-text">Class orders are closed. Orders accepted 7:30 AM – 9:00 AM.</span>
         </div>
         <div class="section-label">Class Lunch Order</div>
         <div class="form-grid">
@@ -841,28 +841,52 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
   const today = getJamaicaToday();
 
-  // Check if Classes orders are locked (after 9AM Jamaica)
-  function isClassesLocked() {
+  // Check if Classes orders are locked based on Jamaica time and selected class
+  function getJamaicaHourMinute() {
     var d = new Date();
     var utc = d.getTime() + (d.getTimezoneOffset() * 60000);
     var jamaica = new Date(utc + (-5 * 60 * 60000));
-    return jamaica.getHours() >= 23;
+    return { h: jamaica.getHours(), m: jamaica.getMinutes() };
+  }
+
+  function isInfantClass(cls) {
+    return cls === 'Infant 1H' || cls === 'Infant 1T' || cls === 'Infant 2L' || cls === 'Infant 2K';
+  }
+
+  function isClassWindowOpen(cls) {
+    var t = getJamaicaHourMinute();
+    var mins = t.h * 60 + t.m;
+    var open  = 7 * 60 + 30; // 7:30 AM
+    var close = isInfantClass(cls) ? (9 * 60 + 30) : (9 * 60); // 9:30 or 9:00
+    return mins >= open && mins < close;
   }
 
   function applyClassesLock() {
-    if (isClassesLocked()) {
-      var lockMsg = document.getElementById('c-lock-msg');
-      var submitBtn = document.querySelector('#classForm button[type="submit"]');
-      var addBtn = document.querySelector('#tab-classes .btn-add-row');
-      if (lockMsg) lockMsg.style.display = 'block';
+    var cls       = document.getElementById('c-class').value;
+    var open      = isClassWindowOpen(cls);
+    var lockMsg   = document.getElementById('c-lock-msg');
+    var lockText  = document.getElementById('c-lock-text');
+    var submitBtn = document.querySelector('#classForm button[type="submit"]');
+    var addBtn    = document.querySelector('#tab-classes .btn-add-row');
+    if (!open) {
+      var closeTime = isInfantClass(cls) ? '9:30 AM' : '9:00 AM';
+      lockText.textContent = isInfantClass(cls)
+        ? 'Infant orders accepted 7:30 AM – 9:30 AM only.'
+        : 'Class orders accepted 7:30 AM – 9:00 AM only.';
+      if (lockMsg)   lockMsg.style.display   = 'block';
       if (submitBtn) { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
-      if (addBtn) addBtn.disabled = true;
+      if (addBtn)    addBtn.disabled = true;
+    } else {
+      if (lockMsg)   lockMsg.style.display   = 'none';
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.style.background = ''; }
+      if (addBtn)    addBtn.disabled = false;
     }
   }
   document.getElementById('c-date').min = today;
   document.getElementById('o-date').min = today;
   document.getElementById('c-date').value = today;
   document.getElementById('o-date').value = today;
+  document.getElementById('c-class').addEventListener('change', applyClassesLock);
 
   // ── PASSWORD ──
   var pendingTab = null;
