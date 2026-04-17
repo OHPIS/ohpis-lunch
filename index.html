@@ -870,9 +870,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var addBtn    = document.querySelector('#tab-classes .btn-add-row');
     if (!open) {
       var closeTime = isInfantClass(cls) ? '9:30 AM' : '9:00 AM';
-      lockText.textContent = isInfantClass(cls)
-        ? 'Infant orders accepted 7:30 AM – 9:30 AM only.'
-        : 'Class orders accepted 7:30 AM – 9:00 AM only.';
+      lockText.textContent = cls === ''
+        ? 'Orders accepted 7:30 AM – 9:00 AM (Infant classes until 9:30 AM).'
+        : isInfantClass(cls)
+          ? 'Infant orders accepted 7:30 AM – 9:30 AM only.'
+          : 'Class orders accepted 7:30 AM – 9:00 AM only.';
       if (lockMsg)   lockMsg.style.display   = 'block';
       if (submitBtn) { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
       if (addBtn)    addBtn.disabled = true;
