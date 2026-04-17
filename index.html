@@ -429,6 +429,22 @@
         </div>
       </form>
     </div>
+
+    <!-- SALES SUMMARY PANEL -->
+    <div class="card" style="margin-top:1rem;">
+      <div class="section-label">📊 Today's Sales Summary</div>
+      <div id="sales-summary-display" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.5rem;">
+        <div style="background:var(--blue-l);border-radius:10px;padding:1rem;text-align:center;">
+          <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen + Office</div>
+          <div id="sales-lunch-total" style="font-size:1.4rem;font-weight:700;color:var(--blue);">—</div>
+        </div>
+        <div style="background:#e8f5ee;border-radius:10px;padding:1rem;text-align:center;">
+          <div style="font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tuckshop</div>
+          <div id="sales-tuckshop-total" style="font-size:1.4rem;font-weight:700;color:var(--green);">—</div>
+        </div>
+      </div>
+      <button type="button" onclick="loadSalesSummary()" style="margin-top:0.8rem;width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.5rem;cursor:pointer;">↻ Refresh</button>
+    </div>
   </div>
 
 
@@ -939,6 +955,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     document.getElementById('tab-tuckshop').classList.toggle('active',  tab === 'tuckshop');
     if (tab === 'office') {
       loadOfficeNames();
+      loadSalesSummary();
     }
     if (tab === 'tuckshop') {
       // Only load products from Sheet on first visit
@@ -2030,6 +2047,38 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           + '</div>';
       }
     }).catch(function(){ msgEl.className='edit-msg notfound'; msgEl.textContent='Error. Please try again.'; });
+  }
+
+  function loadSalesSummary() {
+    var lunchEl   = document.getElementById('sales-lunch-total');
+    var tuckshopEl = document.getElementById('sales-tuckshop-total');
+    if (!lunchEl || !tuckshopEl) return;
+    lunchEl.textContent    = '…';
+    tuckshopEl.textContent = '…';
+
+    // Canteen + Office total from Lunch GS
+    if (SCRIPT_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+      fetch(SCRIPT_URL + '?action=getSalesSummary')
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          lunchEl.textContent = res.result === 'success'
+            ? 'J$ ' + Number(res.total || 0).toLocaleString('en-JM')
+            : '—';
+        })
+        .catch(function(){ lunchEl.textContent = '—'; });
+    } else { lunchEl.textContent = '—'; }
+
+    // Tuckshop total from Tuckshop GS
+    if (TUCKSHOP_SCRIPT_URL !== 'YOUR_TUCKSHOP_SCRIPT_URL_HERE') {
+      fetch(TUCKSHOP_SCRIPT_URL + '?action=getSalesSummary')
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          tuckshopEl.textContent = res.result === 'success'
+            ? 'J$ ' + Number(res.total || 0).toLocaleString('en-JM')
+            : '—';
+        })
+        .catch(function(){ tuckshopEl.textContent = '—'; });
+    } else { tuckshopEl.textContent = '—'; }
   }
 
   pendingTab = 'classes';
