@@ -290,7 +290,39 @@
         </div>
         <div class="status-msg" id="c-status"></div>
 
-        <button type="button" class="edit-order-btn" onclick="toggleEditPanel('c')">✏️ Edit Existing Order</button>
+        <button type="button" class="edit-order-btn" onclick="toggleEditPanel('c')">✏️ Edit Canteen Order</button>
+        <button type="button" class="edit-order-btn" style="margin-top:0.5rem;border-color:var(--blue);color:var(--blue);" onclick="toggleCheckStatus()">🔍 Check Canteen or Office Order Status</button>
+        <div class="edit-panel" id="c-check-status-panel">
+          <div style="display:flex;gap:8px;margin-bottom:1rem;">
+            <button type="button" id="chs-tab-class" onclick="switchCheckTab('class')" style="flex:1;padding:0.5rem;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;cursor:pointer;background:var(--blue);color:#fff;border:1.5px solid var(--blue);">Canteen</button>
+            <button type="button" id="chs-tab-office" onclick="switchCheckTab('office')" style="flex:1;padding:0.5rem;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;cursor:pointer;background:var(--white);color:var(--muted);border:1.5px solid var(--border);">Office</button>
+          </div>
+          <div class="edit-search">
+            <div id="chs-class-wrap">
+              <label>Class</label>
+              <select id="chs-class">
+                <option value="">— Select class —</option>
+                <optgroup label="Grade 1"><option>Grade 1O</option><option>Grade 1L</option><option>Grade 1D</option><option>Grade 1H</option><option>Grade 1A</option><option>Grade 1R</option><option>Grade 1B</option><option>Grade 1U</option></optgroup>
+                <optgroup label="Grade 2"><option>Grade 2O</option><option>Grade 2L</option><option>Grade 2D</option><option>Grade 2H</option><option>Grade 2A</option><option>Grade 2R</option><option>Grade 2B</option><option>Grade 2U</option></optgroup>
+                <optgroup label="Grade 3"><option>Grade 3O</option><option>Grade 3L</option><option>Grade 3D</option><option>Grade 3H</option><option>Grade 3A</option><option>Grade 3R</option><option>Grade 3B</option><option>Grade 3U</option></optgroup>
+                <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
+                <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
+                <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
+                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
+                <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
+              </select>
+            </div>
+            <div id="chs-name-wrap" style="display:none">
+              <label>Name</label>
+              <input type="text" id="chs-name" placeholder="e.g. Mrs. Campbell"/>
+            </div>
+            <div><label>Date</label><input type="date" id="chs-date"/></div>
+            <button type="button" class="find-btn" onclick="checkOrderStatus()">Check</button>
+          </div>
+          <div class="edit-result" id="chs-result">
+            <div class="edit-msg" id="chs-msg"></div>
+          </div>
+        </div>
         <div class="edit-panel" id="c-edit-panel">
           <div class="edit-search">
             <div>
@@ -371,7 +403,7 @@
         </div>
         <div class="status-msg" id="o-status"></div>
 
-        <button type="button" class="edit-order-btn" onclick="toggleEditPanel('o')">✏️ Edit Existing Order</button>
+        <button type="button" class="edit-order-btn" onclick="toggleEditPanel('o')">✏️ Edit Office Order</button>
         <div class="edit-panel" id="o-edit-panel">
           <div class="edit-search">
             <div>
@@ -486,7 +518,30 @@
           <button type="submit">Submit Tuckshop Order</button>
         </div>
         <div class="status-msg" id="t-status"></div>
-        <button type="button" class="edit-order-btn" onclick="toggleEditPanel('t')">✏️ Edit Existing Order</button>
+        <button type="button" class="edit-order-btn" onclick="toggleEditPanel('t')">✏️ Edit Tuckshop Order</button>
+        <button type="button" class="edit-order-btn" style="margin-top:0.5rem;border-color:var(--blue);color:var(--blue);" onclick="toggleCheckStatusTuckshop()">🔍 Check Tuckshop Order Status</button>
+        <div class="edit-panel" id="t-check-status-panel">
+          <div class="edit-search">
+            <div><label>Class</label>
+              <select id="ths-class">
+                <option value="">— Select class —</option>
+                <optgroup label="Grade 1"><option>Grade 1O</option><option>Grade 1L</option><option>Grade 1D</option><option>Grade 1H</option><option>Grade 1A</option><option>Grade 1R</option><option>Grade 1B</option><option>Grade 1U</option></optgroup>
+                <optgroup label="Grade 2"><option>Grade 2O</option><option>Grade 2L</option><option>Grade 2D</option><option>Grade 2H</option><option>Grade 2A</option><option>Grade 2R</option><option>Grade 2B</option><option>Grade 2U</option></optgroup>
+                <optgroup label="Grade 3"><option>Grade 3O</option><option>Grade 3L</option><option>Grade 3D</option><option>Grade 3H</option><option>Grade 3A</option><option>Grade 3R</option><option>Grade 3B</option><option>Grade 3U</option></optgroup>
+                <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
+                <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
+                <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
+                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
+                <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
+              </select>
+            </div>
+            <div><label>Date</label><input type="date" id="ths-date"/></div>
+            <button type="button" class="find-btn" onclick="checkTuckshopStatus()">Check</button>
+          </div>
+          <div class="edit-result" id="ths-result">
+            <div class="edit-msg" id="ths-msg"></div>
+          </div>
+        </div>
         <div class="edit-panel" id="t-edit-panel">
           <div class="edit-search">
             <div><label>Class</label>
@@ -1019,7 +1074,14 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     try {
       var response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } });
       var result   = await response.text();
-      if (result.includes('success')) {
+      if (result.includes('duplicate')) {
+        var parsed = JSON.parse(result);
+        statusEl.className     = 'status-msg error';
+        statusEl.innerHTML     = '⚠️ ' + parsed.message;
+        statusEl.style.display = 'block';
+        btn.disabled    = false;
+        btn.textContent = btnText;
+      } else if (result.includes('success')) {
         showSuccess(statusEl, form, prefix, grandTotal);
       } else { throw new Error(result); }
     } catch(err) {
@@ -1049,6 +1111,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   // ── EDIT ORDER ──
   var editStartRow  = { c: null, o: null };
   var editTimestamp = { c: null, o: null }; // ← guardar timestamp original de la orden
+  var editOriginalRows = { t: [] };         // ← guardar filas originales del tuckshop
 
   function toggleEditPanel(prefix) {
     var panel = document.getElementById(prefix + '-edit-panel');
@@ -1110,6 +1173,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           editTimestamp[prefix] = res.timestamp;
           itemsEl.innerHTML = '';
           if (prefix === 't') {
+            editOriginalRows['t'] = res.rows.slice(); // guardar filas originales
             res.rows.forEach(function(row) { addTuckshopEditRow(row.product, row.amount, row.price); });
             calcTuckshopEditGrand();
           } else {
@@ -1142,11 +1206,18 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var priceDisplay = document.createElement('input');
     priceDisplay.type = 'text'; priceDisplay.readOnly = true;
     priceDisplay.style.cssText = 'background:var(--bg);cursor:default;';
-    priceDisplay.value = selectedPrice ? 'J$ ' + selectedPrice : '';
     var sel = document.createElement('select');
     sel.innerHTML = opts;
-    // Set value to match selectedPrice
-    if (selectedPrice) sel.value = String(selectedPrice);
+    // Find the option that matches the product name and use its value (price)
+    var matchedPrice = '';
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].text === selectedProduct) {
+        sel.selectedIndex = i;
+        matchedPrice = sel.options[i].value;
+        break;
+      }
+    }
+    priceDisplay.value = matchedPrice ? 'J$ ' + matchedPrice : (selectedPrice ? 'J$ ' + selectedPrice : '');
     sel.onchange = function() {
       priceDisplay.value = this.value ? 'J$ ' + this.value : '';
       calcTuckshopEditGrand();
@@ -1274,6 +1345,35 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       return;
     }
 
+    // ── Verificar stock de patties antes de actualizar (solo tuckshop) ──
+    if (prefix === 't') {
+      var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+      var stockErrors = [];
+      PATTY_TYPES.forEach(function(pt) {
+        // Cantidad original de este patty en la orden (parse como número)
+        var origAmt = 0;
+        (editOriginalRows['t'] || []).forEach(function(r) {
+          if (r.product === pt) origAmt += parseFloat(r.amount) || 0;
+        });
+        // Cantidad nueva en la orden editada
+        var newAmt = 0;
+        rows.forEach(function(r) { if (r.product === pt) newAmt += parseFloat(r.amount) || 0; });
+        // Solo bloquear si se intenta pedir MÁS que antes
+        var extra = newAmt - origAmt;
+        if (extra > 0) {
+          var available = tuckshopStock[pt] !== undefined ? parseInt(tuckshopStock[pt]) || 0 : 999;
+          if (extra > available) {
+            stockErrors.push(pt + ': you need to add ' + extra + ' but only ' + available + ' left');
+          }
+        }
+      });
+      if (stockErrors.length) {
+        msgEl.className = 'edit-msg notfound';
+        msgEl.innerHTML = '🚫 ' + stockErrors.join('<br>');
+        return;
+      }
+    }
+
     var grandTotal = rows.reduce(function(s, r) { return s + r.total; }, 0);
 
     btn.disabled    = true;
@@ -1295,6 +1395,32 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       var response = await fetch(scriptUrl, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } });
       var result   = await response.json();
       if (result.result === 'success') {
+        // Recalcular stock de patties si es update de tuckshop
+        if (prefix === 't') {
+          var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+          // 1. Devolver las cantidades de la orden original al stock
+          (editOriginalRows['t'] || []).forEach(function(r) {
+            if (PATTY_TYPES.indexOf(r.product) !== -1) {
+              tuckshopStock[r.product] = (tuckshopStock[r.product] || 0) + (parseFloat(r.amount) || 0);
+            }
+          });
+          // 2. Descontar las cantidades nuevas
+          rows.forEach(function(r) {
+            if (PATTY_TYPES.indexOf(r.product) !== -1) {
+              tuckshopStock[r.product] = Math.max(0, (tuckshopStock[r.product] || 0) - r.amount);
+            }
+          });
+          // 3. Guardar en GS y actualizar display
+          renderTuckshopProducts();
+          if (TUCKSHOP_SCRIPT_URL !== 'YOUR_TUCKSHOP_SCRIPT_URL_HERE') {
+            fetch(TUCKSHOP_SCRIPT_URL, {
+              method: 'POST',
+              body: JSON.stringify({ action: 'updateStock', stock: tuckshopStock }),
+              headers: { 'Content-Type': 'text/plain' }
+            }).catch(function(e){ console.error(e); });
+          }
+          editOriginalRows['t'] = [];
+        }
         msgEl.className = 'edit-msg found';
         msgEl.textContent = '✅ Order updated successfully! Total: J$ ' + grandTotal.toLocaleString('en-JM');
         document.getElementById(prefix + '-edit-items').innerHTML = '';
@@ -1302,7 +1428,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         document.getElementById(prefix + '-edit-total-box').style.display = 'none';
         btn.style.display = 'none';
         editStartRow[prefix]  = null;
-        editTimestamp[prefix] = null; // ← limpiar
+        editTimestamp[prefix] = null;
       } else { throw new Error(result.message); }
     } catch(err) {
       msgEl.className = 'edit-msg notfound';
@@ -1727,7 +1853,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     try {
       var response = await fetch(TUCKSHOP_SCRIPT_URL, { method:'POST', body:JSON.stringify(data), headers:{'Content-Type':'text/plain'} });
       var result   = await response.json();
-      if (result.result === 'success') {
+      if (result.result === 'duplicate') {
+        statusEl.className = 'status-msg error';
+        statusEl.innerHTML = '⚠️ ' + result.message;
+        statusEl.style.display = 'block';
+      } else if (result.result === 'success') {
         showTuckshopSuccess(statusEl, grandTotal);
       } else { throw new Error(result.message); }
     } catch(err) {
@@ -1805,6 +1935,103 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   applyClassesLock();
 
   // Show general password modal immediately — nothing visible until unlocked
+  // ── CHECK ORDER STATUS ──
+  var chsMode = 'class';
+
+  function toggleCheckStatus() {
+    var panel = document.getElementById('c-check-status-panel');
+    panel.classList.toggle('open');
+    var d = document.getElementById('chs-date');
+    if (!d.value) d.value = today;
+  }
+
+  function switchCheckTab(mode) {
+    chsMode = mode;
+    document.getElementById('chs-class-wrap').style.display = mode === 'class' ? '' : 'none';
+    document.getElementById('chs-name-wrap').style.display  = mode === 'office' ? '' : 'none';
+    ['class','office'].forEach(function(m) {
+      var btn = document.getElementById('chs-tab-' + m);
+      if (!btn) return;
+      var active = m === mode;
+      btn.style.background  = active ? 'var(--blue)' : 'var(--white)';
+      btn.style.color       = active ? '#fff' : 'var(--muted)';
+      btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
+    });
+    document.getElementById('chs-result').className = 'edit-result';
+  }
+
+  function checkOrderStatus() {
+    var date = document.getElementById('chs-date').value;
+    var key  = chsMode === 'class'
+      ? document.getElementById('chs-class').value
+      : document.getElementById('chs-name').value.trim();
+    var resEl = document.getElementById('chs-result');
+    var msgEl = document.getElementById('chs-msg');
+    resEl.className = 'edit-result show';
+    if (!date || !key) {
+      msgEl.className = 'edit-msg notfound';
+      msgEl.textContent = chsMode === 'office' ? 'Please enter a name and date.' : 'Please select a class and date.';
+      return;
+    }
+    msgEl.className = 'edit-msg found';
+    msgEl.textContent = 'Checking...';
+    var sheetTab = chsMode === 'class' ? 'Classes' : 'Office';
+    var url = SCRIPT_URL + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) + '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
+    fetch(url).then(function(r){ return r.json(); }).then(function(res) {
+      if (res.result === 'notfound') {
+        msgEl.className = 'edit-msg notfound';
+        msgEl.textContent = 'No order found for ' + key + ' on this date.';
+      } else {
+        var st = res.status || 'Pending';
+        var bg = st==='Served' ? '#00C851' : st==='Pick up' ? '#FFD600' : st==='Updated' ? '#FF6D00' : '#CC0000';
+        var fg = st==='Pick up' ? '#000' : '#fff';
+        msgEl.className = 'edit-msg found';
+        msgEl.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'
+          + '<div><strong>' + key + '</strong><br><span style="font-size:0.82rem;color:var(--muted);">Total: J$ ' + Number(res.grandTotal||0).toLocaleString('en-JM') + '</span></div>'
+          + '<span style="background:' + bg + ';color:' + fg + ';font-weight:700;padding:6px 18px;border-radius:20px;font-size:0.92rem;">' + st + '</span>'
+          + '</div>';
+      }
+    }).catch(function(){ msgEl.className='edit-msg notfound'; msgEl.textContent='Error. Please try again.'; });
+  }
+
+  function toggleCheckStatusTuckshop() {
+    var panel = document.getElementById('t-check-status-panel');
+    panel.classList.toggle('open');
+    var d = document.getElementById('ths-date');
+    if (!d.value) d.value = today;
+  }
+
+  function checkTuckshopStatus() {
+    var cls  = document.getElementById('ths-class').value;
+    var date = document.getElementById('ths-date').value;
+    var resEl = document.getElementById('ths-result');
+    var msgEl = document.getElementById('ths-msg');
+    resEl.className = 'edit-result show';
+    if (!cls || !date) {
+      msgEl.className = 'edit-msg notfound';
+      msgEl.textContent = 'Please select a class and date.';
+      return;
+    }
+    msgEl.className = 'edit-msg found';
+    msgEl.textContent = 'Checking...';
+    var url = TUCKSHOP_SCRIPT_URL + '?action=getOrder&sheetTab=Tuckshop&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(cls);
+    fetch(url).then(function(r){ return r.json(); }).then(function(res) {
+      if (res.result === 'notfound') {
+        msgEl.className = 'edit-msg notfound';
+        msgEl.textContent = 'No order found for ' + cls + ' on this date.';
+      } else {
+        var st = res.status || 'Pending';
+        var bg = st==='Served' ? '#00C851' : st==='Pick up' ? '#FFD600' : st==='Updated' ? '#FF6D00' : '#CC0000';
+        var fg = st==='Pick up' ? '#000' : '#fff';
+        msgEl.className = 'edit-msg found';
+        msgEl.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'
+          + '<div><strong>' + cls + '</strong><br><span style="font-size:0.82rem;color:var(--muted);">Total: J$ ' + Number(res.grandTotal||0).toLocaleString('en-JM') + '</span></div>'
+          + '<span style="background:' + bg + ';color:' + fg + ';font-weight:700;padding:6px 18px;border-radius:20px;font-size:0.92rem;">' + st + '</span>'
+          + '</div>';
+      }
+    }).catch(function(){ msgEl.className='edit-msg notfound'; msgEl.textContent='Error. Please try again.'; });
+  }
+
   pendingTab = 'classes';
 </script>
 </body>
