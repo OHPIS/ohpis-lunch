@@ -290,7 +290,7 @@
         </div>
         <div class="status-msg" id="c-status"></div>
 
-        <button type="button" class="edit-order-btn" onclick="toggleEditPanel('c')">✏️ Edit Canteen Order</button>
+        <button type="button" id="c-edit-canteen-btn" class="edit-order-btn" onclick="toggleEditPanel('c')">✏️ Edit Canteen Order</button>
         <button type="button" class="edit-order-btn" style="margin-top:0.5rem;border-color:var(--blue);color:var(--blue);" onclick="toggleCheckStatus()">🔍 Check Canteen or Office Order Status</button>
         <div class="edit-panel" id="c-check-status-panel">
           <div style="display:flex;gap:8px;margin-bottom:1rem;">
@@ -864,10 +864,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   function applyClassesLock() {
     var cls       = document.getElementById('c-class').value;
     var open      = isClassWindowOpen(cls);
-    var lockMsg   = document.getElementById('c-lock-msg');
-    var lockText  = document.getElementById('c-lock-text');
-    var submitBtn = document.querySelector('#classForm button[type="submit"]');
-    var addBtn    = document.querySelector('#tab-classes .btn-add-row');
+    var lockMsg      = document.getElementById('c-lock-msg');
+    var lockText     = document.getElementById('c-lock-text');
+    var submitBtn    = document.querySelector('#classForm button[type="submit"]');
+    var addBtn       = document.querySelector('#tab-classes .btn-add-row');
+    var editCanteBtn = document.getElementById('c-edit-canteen-btn');
     if (!open) {
       var closeTime = isInfantClass(cls) ? '9:30 AM' : '9:00 AM';
       lockText.textContent = cls === ''
@@ -875,13 +876,15 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         : isInfantClass(cls)
           ? 'Infant orders accepted 7:30 AM – 9:30 AM only.'
           : 'Class orders accepted 7:30 AM – 9:00 AM only.';
-      if (lockMsg)   lockMsg.style.display   = 'block';
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
-      if (addBtn)    addBtn.disabled = true;
+      if (lockMsg)      lockMsg.style.display   = 'block';
+      if (submitBtn)    { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
+      if (addBtn)       addBtn.disabled = true;
+      if (editCanteBtn) { editCanteBtn.disabled = true; editCanteBtn.style.opacity = '0.4'; editCanteBtn.style.cursor = 'not-allowed'; }
     } else {
-      if (lockMsg)   lockMsg.style.display   = 'none';
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.style.background = ''; }
-      if (addBtn)    addBtn.disabled = false;
+      if (lockMsg)      lockMsg.style.display   = 'none';
+      if (submitBtn)    { submitBtn.disabled = false; submitBtn.style.background = ''; }
+      if (addBtn)       addBtn.disabled = false;
+      if (editCanteBtn) { editCanteBtn.disabled = false; editCanteBtn.style.opacity = ''; editCanteBtn.style.cursor = ''; }
     }
   }
   document.getElementById('c-date').min = today;
