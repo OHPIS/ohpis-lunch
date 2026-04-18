@@ -100,11 +100,68 @@
     .site-footer { text-align: center; margin-top: 2.5rem; font-size: 0.76rem; color: #aaa; }
 
     @media (max-width: 540px) {
-      .items-header { grid-template-columns: 1fr 70px 80px 70px 32px; }
-      .item-row { grid-template-columns: 1fr 70px 80px 70px 32px; }
-      .card { padding: 1.4rem 1rem 1.6rem; }
-      .form-grid { grid-template-columns: 1fr; }
+      /* Container */
+      .container { padding: 0 0.6rem; margin-top: 1.2rem; }
+
+      /* Tabs — smaller text, tighter */
+      .tabs { gap: 4px; margin-bottom: 1rem; }
+      .tab-btn { font-size: 0.75rem; padding: 0.6rem 0.3rem; }
+
+      /* Cards */
+      .card { padding: 1.1rem 0.85rem 1.3rem; border-radius: 10px; }
+      .section-label { font-size: 0.65rem; margin-bottom: 0.9rem; }
+
+      /* Form grid — single column */
+      .form-grid { grid-template-columns: 1fr; gap: 0.8rem; }
       .form-group.full { grid-column: 1; }
+
+      /* Item rows — stack lunch type full width, compress others */
+      .items-header { grid-template-columns: 1fr 60px 70px 60px 30px; gap: 4px; font-size: 0.65rem; }
+      .item-row { grid-template-columns: 1fr 60px 70px 60px 30px; gap: 4px; }
+      .item-row select, .item-row input { font-size: 0.8rem; padding: 0.38rem 0.35rem; }
+      .item-row select { padding-right: 1.2rem; }
+      .item-total { font-size: 0.8rem; }
+      .btn-remove { width: 28px; height: 28px; font-size: 0.85rem; }
+
+      /* Grand total */
+      .grand-total-box { padding: 0.7rem 0.9rem; }
+      .grand-total-label { font-size: 0.82rem; }
+      .grand-total-value { font-size: 1.1rem; }
+
+      /* Submit button */
+      button[type="submit"] { font-size: 0.9rem; padding: 0.7rem 1.2rem; max-width: 100%; }
+
+      /* Edit search panel — stack vertically */
+      .edit-search { grid-template-columns: 1fr; }
+      .find-btn { width: 100%; }
+
+      /* Menu items list — single column */
+      .menu-items-list { grid-template-columns: 1fr; }
+      .menu-card { padding: 1.1rem 0.85rem; }
+
+      /* Today's menu header */
+      .menu-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+
+      /* Admin panel rows */
+      #admin-items > div { grid-template-columns: 1fr 72px 72px 30px !important; gap: 4px !important; }
+
+      /* Sales summary boxes */
+      #sales-summary-display { grid-template-columns: 1fr !important; }
+
+      /* Charts — full width scroll */
+      #chart-lunch-daily-wrap,
+      #chart-tuckshop-daily-wrap { margin: 0 -0.85rem; padding: 0 0.85rem; }
+
+      /* Status messages */
+      .status-msg { font-size: 0.82rem; padding: 0.75rem 0.9rem; }
+
+      /* Edit/find buttons */
+      .edit-order-btn { font-size: 0.82rem; padding: 0.48rem 0.8rem; }
+      .update-btn { font-size: 0.85rem; padding: 0.6rem 1rem; }
+
+      /* Header */
+      .crest { width: 55px; height: 55px; }
+      .header-body { padding: 0.9rem 0.8rem 0.8rem; }
     }
 
     /* PASSWORD MODAL */
