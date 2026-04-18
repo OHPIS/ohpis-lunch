@@ -2205,27 +2205,53 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     _destroyChart(canvasId);
     var ctx = document.getElementById(canvasId);
     if (!ctx) return;
-    var barWidth = 60; // px per bar
-    var minWidth = ctx.parentElement ? ctx.parentElement.offsetWidth : 300;
-    var canvasWidth = Math.max(minWidth, labels.length * barWidth);
-    ctx.style.width  = canvasWidth + 'px';
-    ctx.style.height = '200px';
-    ctx.width  = canvasWidth;
-    ctx.height = 200;
+    var barWidth = 70;
+    var minBars  = 6; // always show at least 6 slots so bars aren't huge
+    var slots    = Math.max(labels.length, minBars);
+    var wrapEl   = ctx.parentElement;
+    var wrapW    = wrapEl ? wrapEl.offsetWidth : 320;
+    var canvasW  = Math.max(wrapW, slots * barWidth);
+    ctx.style.width  = canvasW + 'px';
+    ctx.style.height = '220px';
+    ctx.width  = canvasW;
+    ctx.height = 220;
     _chartInstances[canvasId] = new Chart(ctx, {
       type: 'bar',
       data: {
         labels: labels,
-        datasets: [{ label: label, data: data, backgroundColor: color, borderRadius: 5 }]
+        datasets: [{
+          label: label,
+          data: data,
+          backgroundColor: color,
+          borderRadius: 4,
+          barThickness: 38
+        }]
       },
       options: {
         responsive: false,
-        plugins: { legend: { display: false },
-          tooltip: { callbacks: { label: function(c){ return 'J$ ' + Number(c.parsed.y).toLocaleString('en-US',{minimumFractionDigits:2}); } } }
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(c) {
+                return 'J$ ' + Number(c.parsed.y).toLocaleString('en-US', {minimumFractionDigits:2});
+              }
+            }
+          }
         },
         scales: {
-          y: { beginAtZero: true, ticks: { font: { size: 11 }, callback: function(v){ return 'J$' + Number(v).toLocaleString(); } } },
-          x: { ticks: { font: { size: 11 }, maxRotation: 0, minRotation: 0 } }
+          y: {
+            beginAtZero: true,
+            ticks: {
+              font: { size: 11 },
+              callback: function(v) { return 'J$' + Number(v).toLocaleString(); }
+            },
+            grid: { color: 'rgba(0,0,0,0.06)' }
+          },
+          x: {
+            ticks: { font: { size: 11 }, maxRotation: 0, minRotation: 0 },
+            grid: { display: false }
+          }
         }
       }
     });
@@ -2269,7 +2295,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         if (res.result !== 'success') return;
         var rows = res.rows || [];
         // Daily bar chart
-        var dates  = rows.map(function(r){ return r.date.slice(5); }); // MM-DD
+        var dates  = rows.map(function(r){ var p=r.date.split(' '); return p.length===2 ? [p[0],p[1]] : [r.date]; });
         var totals = rows.map(function(r){ return r.total; });
         _buildBarChart('chart-lunch-daily', dates, totals, '#1A2E6B', 'Canteen+Office J$');
         // Product doughnut — sum across all days
@@ -2291,7 +2317,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       .then(function(res) {
         if (res.result !== 'success') return;
         var rows = res.rows || [];
-        var dates  = rows.map(function(r){ return r.date.slice(5); });
+        var dates  = rows.map(function(r){ var p=r.date.split(' '); return p.length===2 ? [p[0],p[1]] : [r.date]; });
         var totals = rows.map(function(r){ return r.total; });
         _buildBarChart('chart-tuckshop-daily', dates, totals, '#00C851', 'Tuckshop J$');
         var allProducts = {};
