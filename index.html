@@ -2090,7 +2090,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         .then(function(r){ return r.json(); })
         .then(function(res){
           lunchEl.textContent = res.result === 'success'
-            ? 'J$ ' + Number(res.total || 0).toLocaleString('en-JM')
+            ? 'J$ ' + Number(res.total || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})
             : '—';
         })
         .catch(function(){ lunchEl.textContent = '—'; });
@@ -2102,7 +2102,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         .then(function(r){ return r.json(); })
         .then(function(res){
           tuckshopEl.textContent = res.result === 'success'
-            ? 'J$ ' + Number(res.total || 0).toLocaleString('en-JM')
+            ? 'J$ ' + Number(res.total || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})
             : '—';
         })
         .catch(function(){ tuckshopEl.textContent = '—'; });
