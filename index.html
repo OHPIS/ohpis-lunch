@@ -811,19 +811,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx45OkW-9QXuWs6wQF8GZiHh-v8kBX0OxN7qBvynGJ72JIK80f91GYzeK0CbFp3knBp/exec";
 
-  const LUNCH_TYPES_CLASS = [
-    "Teachers regular","Teachers chips","Children rice and peas","Children chicken and chips",
-    "Children/chips","C/rice","Students rice","Students chips","Teacher/C chips",
-    "Pepper","Cup soup","Cup soup with pepper","Children big rice and peas",
-    "Students big chicken and chips","Teachers children","Special","Adult"
-  ];
-  const LUNCH_TYPES_OFFICE = [
-    "Teachers regular","Teachers chips","Support staff","Support chips",
-    "Children rice and peas","Children chicken and chips","Children/chips","C/rice",
-    "Students rice","Students chips","Teacher/C chips","Pepper","Cup soup",
-    "Cup soup with pepper","Children big rice and peas","Students big chicken and chips",
-    "Teachers children","Special","Adult"
-  ];
+  var LUNCH_TYPES_CLASS  = [];
+  var LUNCH_TYPES_OFFICE = [];
+  // PRICES kept as fallback but auto-filled from GS
   const PRICES = [50,100,150,200,250,300,350,400,450,500,550,600,650,700,750];
 
   var appUnlocked = false;
@@ -1003,7 +993,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 
   function lunchOptions(prefix) {
     var types = prefix === 'c' ? LUNCH_TYPES_CLASS : LUNCH_TYPES_OFFICE;
-    return '<option value="">— Select —</option>' + types.map(function(t){ return '<option>' + t + '</option>'; }).join('');
+    return '<option value="">— Select —</option>' + types.map(function(t) {
+      return '<option value="' + (t.price || '') + '">' + t.name + '</option>';
+    }).join('');
   }
 
   function priceOptions() {
@@ -1016,13 +1008,30 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var div = document.createElement('div');
     div.className = 'item-row';
     div.id = id;
-    div.innerHTML = [
-      '<select onchange="calcGrand(\'' + prefix + '\')">' + lunchOptions(prefix) + '</select>',
-      '<input type="number" min="1" max="999" placeholder="0" oninput="calcGrand(\'' + prefix + '\')" />',
-      '<select onchange="calcGrand(\'' + prefix + '\')">' + priceOptions() + '</select>',
-      '<span class="item-total">J$ 0</span>',
-      '<button type="button" class="btn-remove" onclick="removeRow(\'' + id + '\',\'' + prefix + '\')">✕</button>'
-    ].join('');
+    // Lunch type select
+    var lunchSel = document.createElement('select');
+    lunchSel.innerHTML = lunchOptions(prefix);
+    // Price select
+    var priceSel = document.createElement('select');
+    priceSel.innerHTML = priceOptions();
+    // Auto-fill price when lunch type changes
+    lunchSel.onchange = function() {
+      if (this.value) priceSel.value = this.value;
+      calcGrand(prefix);
+    };
+    priceSel.onchange = function() { calcGrand(prefix); };
+    var amtInput = document.createElement('input');
+    amtInput.type = 'number'; amtInput.min = '1'; amtInput.max = '999';
+    amtInput.placeholder = '0';
+    amtInput.oninput = function() { calcGrand(prefix); };
+    var subtotal = document.createElement('span');
+    subtotal.className = 'item-total'; subtotal.textContent = 'J$ 0';
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button'; removeBtn.className = 'btn-remove';
+    removeBtn.textContent = '✕';
+    removeBtn.onclick = function() { document.getElementById(id).remove(); calcGrand(prefix); };
+    div.appendChild(lunchSel); div.appendChild(amtInput);
+    div.appendChild(priceSel); div.appendChild(subtotal); div.appendChild(removeBtn);
     document.getElementById(prefix + '-items').appendChild(div);
   }
 
@@ -1052,13 +1061,15 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     document.getElementById(prefix + '-items').querySelectorAll('.item-row').forEach(function(row) {
       var selects   = row.querySelectorAll('select');
       var input     = row.querySelector('input');
-      var lunchType = selects[0].value;
+      var lunchSel  = selects[0];
+      var priceSel  = selects[1];
+      var lunchType = lunchSel.selectedIndex > 0 ? lunchSel.options[lunchSel.selectedIndex].text : '';
       var amt       = parseFloat(input.value)      || 0;
-      var price     = parseFloat(selects[1].value) || 0;
+      var price     = parseFloat(priceSel.value) || 0;
       // Highlight missing fields
-      selects[0].style.borderColor = lunchType        ? '' : '#B22234';
-      input.style.borderColor      = amt > 0          ? '' : '#B22234';
-      selects[1].style.borderColor = price > 0        ? '' : '#B22234';
+      lunchSel.style.borderColor  = lunchType        ? '' : '#B22234';
+      input.style.borderColor     = amt > 0          ? '' : '#B22234';
+      priceSel.style.borderColor  = price > 0        ? '' : '#B22234';
       if (!lunchType || amt <= 0 || price <= 0) {
         valid = false;
       } else {
@@ -1313,19 +1324,33 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var realPrefix = prefix.replace('-edit', '');
     var opts = '<option value="">— Select —</option>' +
       lunchTypes.map(function(t) {
-        return '<option' + (t === selectedLunch ? ' selected' : '') + '>' + t + '</option>';
+        return '<option value="' + (t.price || '') + '"' + (t.name === selectedLunch ? ' selected' : '') + '>' + t.name + '</option>';
       }).join('');
     var priceOpts = '<option value="">— Price —</option>' +
       PRICES.map(function(p) {
         return '<option' + (String(p) === String(selectedPrice) ? ' selected' : '') + '>' + p + '</option>';
       }).join('');
-    div.innerHTML = [
-      '<select onchange="calcEditGrand(\'' + realPrefix + '\')">' + opts + '</select>',
-      '<input type="number" min="1" max="999" placeholder="0" value="' + (selectedAmount || '') + '" oninput="calcEditGrand(\'' + realPrefix + '\')" />',
-      '<select onchange="calcEditGrand(\'' + realPrefix + '\')">' + priceOpts + '</select>',
-      '<span class="item-total">J$ 0</span>',
-      '<button type="button" class="btn-remove" onclick="document.getElementById(\'' + id + '\').remove(); calcEditGrand(\'' + realPrefix + '\')">✕</button>'
-    ].join('');
+    var lunchSel = document.createElement('select');
+    lunchSel.innerHTML = opts;
+    var priceSel = document.createElement('select');
+    priceSel.innerHTML = priceOpts;
+    if (selectedPrice) priceSel.value = String(selectedPrice);
+    lunchSel.onchange = function() {
+      if (this.value) priceSel.value = this.value;
+      calcEditGrand(realPrefix);
+    };
+    priceSel.onchange = function() { calcEditGrand(realPrefix); };
+    var amtInput = document.createElement('input');
+    amtInput.type = 'number'; amtInput.min = '1'; amtInput.max = '999';
+    amtInput.placeholder = '0'; amtInput.value = selectedAmount || '';
+    amtInput.oninput = function() { calcEditGrand(realPrefix); };
+    var subtotal = document.createElement('span');
+    subtotal.className = 'item-total'; subtotal.textContent = 'J$ 0';
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button'; removeBtn.className = 'btn-remove'; removeBtn.textContent = '✕';
+    removeBtn.onclick = function() { document.getElementById(id).remove(); calcEditGrand(realPrefix); };
+    div.appendChild(lunchSel); div.appendChild(amtInput);
+    div.appendChild(priceSel); div.appendChild(subtotal); div.appendChild(removeBtn);
     document.getElementById(prefix.replace('-edit','') + '-edit-items').appendChild(div);
     calcEditGrand(realPrefix);
   }
@@ -1374,12 +1399,14 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       } else {
         var selects   = row.querySelectorAll('select');
         var input     = row.querySelector('input');
-        var lunchType = selects[0].value;
-        var amt       = parseFloat(input.value)      || 0;
-        var price     = parseFloat(selects[1].value) || 0;
-        selects[0].style.borderColor = lunchType ? '' : '#B22234';
-        input.style.borderColor      = amt > 0   ? '' : '#B22234';
-        selects[1].style.borderColor = price > 0 ? '' : '#B22234';
+        var lunchSel  = selects[0];
+        var priceSel  = selects[1];
+        var lunchType = lunchSel.selectedIndex > 0 ? lunchSel.options[lunchSel.selectedIndex].text : '';
+        var amt       = parseFloat(input.value)    || 0;
+        var price     = parseFloat(priceSel.value) || 0;
+        lunchSel.style.borderColor  = lunchType ? '' : '#B22234';
+        input.style.borderColor     = amt > 0   ? '' : '#B22234';
+        priceSel.style.borderColor  = price > 0 ? '' : '#B22234';
         if (!lunchType || amt <= 0 || price <= 0) { valid = false; }
         else { rows.push({ lunchType: lunchType, amount: amt, price: price, total: amt * price }); }
       }
@@ -2108,6 +2135,26 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         .catch(function(){ tuckshopEl.textContent = '—'; });
     } else { tuckshopEl.textContent = '—'; }
   }
+
+  // ── Load lunch types and prices from GS ──────────────────────
+  function loadLunchTypes() {
+    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
+    fetch(SCRIPT_URL + '?action=getLunchTypes')
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.result !== 'success') return;
+        LUNCH_TYPES_CLASS  = res.classTypes  || [];
+        LUNCH_TYPES_OFFICE = res.officeTypes || [];
+        // Refresh any existing rows in open forms
+        ['c','o'].forEach(function(p) {
+          var items = document.getElementById(p + '-items');
+          if (items) items.innerHTML = '';
+          addRow(p);
+        });
+      })
+      .catch(function(e) { console.error('loadLunchTypes error:', e); });
+  }
+  loadLunchTypes();
 
   pendingTab = 'classes';
 </script>
