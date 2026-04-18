@@ -143,7 +143,7 @@
       .menu-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
 
       /* Admin panel rows */
-      #admin-items > div { grid-template-columns: 1fr 72px 72px 30px !important; gap: 4px !important; }
+      #admin-items > div { grid-template-columns: 22px 1fr 72px 72px 30px !important; gap: 4px !important; }
 
       /* Sales summary boxes */
       #sales-summary-display { grid-template-columns: 1fr !important; }
@@ -151,9 +151,6 @@
       /* Charts — full width scroll */
       #chart-lunch-daily-wrap,
       #chart-tuckshop-daily-wrap { margin: 0 -0.85rem; padding: 0 0.85rem; }
-
-      /* Status messages */
-      .status-msg { font-size: 0.82rem; padding: 0.75rem 0.9rem; }
 
       /* Edit/find buttons */
       .edit-order-btn { font-size: 0.82rem; padding: 0.48rem 0.8rem; }
@@ -618,7 +615,7 @@
           </div>
         </div>
         <div class="items-section" style="margin-top:1rem;">
-          <div class="items-header" style="grid-template-columns:1fr 90px 100px 90px 40px;">
+          <div class="items-header">
             <span>Product</span><span>Amount</span><span>Price (J$)</span><span style="text-align:right">Subtotal</span><span></span>
           </div>
           <div id="t-items"></div>
@@ -695,7 +692,8 @@
     <div class="card">
       <div class="section-label">🛠️ Lunch Type Manager</div>
       <p style="font-size:0.85rem;color:var(--muted);margin:0.5rem 0 1rem;">Add, edit or remove lunch types and prices for Classes and Office forms.</p>
-      <div style="display:grid;grid-template-columns:1fr 90px 90px 36px;gap:6px;margin-bottom:4px;">
+      <div style="display:grid;grid-template-columns:22px 1fr 90px 90px 36px;gap:6px;margin-bottom:4px;">
+        <span></span>
         <span style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Lunch Type</span>
         <span style="font-size:0.75rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.05em;">Class J$</span>
         <span style="font-size:0.75rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.05em;">Office J$</span>
@@ -2484,32 +2482,70 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
   var adminRowCounter = 0;
+  var adminDragSrc = null;
+
   function adminAddRow(name, classPrice, officePrice) {
     adminRowCounter++;
     var id = 'admin-row-' + adminRowCounter;
     var div = document.createElement('div');
     div.id = id;
-    div.style.cssText = 'display:grid;grid-template-columns:1fr 90px 90px 36px;gap:6px;align-items:center;';
+    div.draggable = true;
+    div.style.cssText = 'display:grid;grid-template-columns:22px 1fr 90px 90px 36px;gap:6px;align-items:center;cursor:default;';
+
+    // Drag handle
+    var handle = document.createElement('span');
+    handle.textContent = '⠿';
+    handle.title = 'Drag to reorder';
+    handle.style.cssText = 'color:var(--muted);cursor:grab;font-size:1.1rem;line-height:1;user-select:none;touch-action:none;';
+
+    var inputCss = 'font-family:\'DM Sans\',sans-serif;font-size:0.88rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.45rem 0.7rem;outline:none;width:100%;';
     var nameInput = document.createElement('input');
     nameInput.type = 'text'; nameInput.placeholder = 'Lunch type name';
-    nameInput.value = name || '';
-    nameInput.style.cssText = 'font-family:\'DM Sans\',sans-serif;font-size:0.88rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.45rem 0.7rem;outline:none;width:100%;';
+    nameInput.value = name || ''; nameInput.style.cssText = inputCss;
     var cpInput = document.createElement('input');
     cpInput.type = 'number'; cpInput.placeholder = 'Class J$';
     cpInput.value = classPrice != null ? classPrice : '';
-    cpInput.style.cssText = nameInput.style.cssText;
+    cpInput.style.cssText = inputCss;
     cpInput.title = 'Class price (leave blank to exclude from Classes)';
     var opInput = document.createElement('input');
     opInput.type = 'number'; opInput.placeholder = 'Office J$';
     opInput.value = officePrice != null ? officePrice : '';
-    opInput.style.cssText = nameInput.style.cssText;
+    opInput.style.cssText = inputCss;
     opInput.title = 'Office price (leave blank to exclude from Office)';
     var removeBtn = document.createElement('button');
     removeBtn.type = 'button'; removeBtn.textContent = '✕';
     removeBtn.style.cssText = 'background:#fdf0f0;border:1.5px solid #f5bfbf;color:#B22234;border-radius:var(--radius);padding:0.45rem 0.6rem;cursor:pointer;font-size:0.85rem;';
     removeBtn.onclick = function() { document.getElementById(id).remove(); };
-    div.appendChild(nameInput); div.appendChild(cpInput);
-    div.appendChild(opInput);  div.appendChild(removeBtn);
+
+    // Drag events
+    div.addEventListener('dragstart', function(e) {
+      adminDragSrc = div;
+      e.dataTransfer.effectAllowed = 'move';
+      div.style.opacity = '0.4';
+    });
+    div.addEventListener('dragend', function() {
+      div.style.opacity = '';
+      document.querySelectorAll('#admin-items > div').forEach(function(r) {
+        r.style.borderTop = '';
+      });
+    });
+    div.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (div !== adminDragSrc) div.style.borderTop = '2px solid var(--blue)';
+    });
+    div.addEventListener('dragleave', function() { div.style.borderTop = ''; });
+    div.addEventListener('drop', function(e) {
+      e.preventDefault();
+      div.style.borderTop = '';
+      if (adminDragSrc && adminDragSrc !== div) {
+        var container = document.getElementById('admin-items');
+        container.insertBefore(adminDragSrc, div);
+      }
+    });
+
+    div.appendChild(handle); div.appendChild(nameInput);
+    div.appendChild(cpInput); div.appendChild(opInput); div.appendChild(removeBtn);
     document.getElementById('admin-items').appendChild(div);
   }
 
