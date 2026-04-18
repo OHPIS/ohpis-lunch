@@ -472,6 +472,18 @@
           <canvas id="chart-tuckshop-daily" height="200"></canvas>
         </div>
       </div>
+      <div style="margin-top:1.5rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen + Office — Sales by Day of Week</div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+          <canvas id="chart-lunch-weekday" height="200"></canvas>
+        </div>
+      </div>
+      <div style="margin-top:1.5rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tuckshop — Sales by Day of Week</div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+          <canvas id="chart-tuckshop-weekday" height="200"></canvas>
+        </div>
+      </div>
       <button type="button" onclick="loadSalesCharts()" style="margin-top:0.8rem;width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.5rem;cursor:pointer;">↻ Refresh Charts</button>
     </div>
   </div>
@@ -2208,7 +2220,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var barWidth = 70;
     var wrapEl   = ctx.parentElement;
     var wrapW    = wrapEl ? wrapEl.offsetWidth : 320;
-    var canvasW  = Math.max(wrapW, labels.length * barWidth);
+    var canvasW  = labels.length * barWidth;
+    // If fewer bars than container width, still fill left-aligned
+    if (canvasW < wrapW) canvasW = labels.length * barWidth + 40; // just padding on right
     ctx.style.width  = canvasW + 'px';
     ctx.style.height = '220px';
     ctx.width  = canvasW;
@@ -2222,7 +2236,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           data: data,
           backgroundColor: color,
           borderRadius: 4,
-          barThickness: 38
+          barThickness: 38,
+          categoryPercentage: 1.0,
+          barPercentage: 0.6
         }]
       },
       options: {
@@ -2283,6 +2299,25 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     });
   }
 
+  function _buildWeekdayChart(canvasId, rows, color) {
+    var days = ['Mon','Tue','Wed','Thu','Fri'];
+    var totals = [0,0,0,0,0], counts = [0,0,0,0,0];
+    rows.forEach(function(r) {
+      if (!r.rawDate) return;
+      var parts = r.rawDate.split('-');
+      if (parts.length < 3) return;
+      var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+      var dow = d.getDay(); // 0=Sun,1=Mon,...,5=Fri,6=Sat
+      if (dow >= 1 && dow <= 5) {
+        totals[dow-1] += r.total;
+        counts[dow-1]++;
+      }
+    });
+    // Use average per day (so days with more data don't dominate)
+    var avgs = totals.map(function(t, i){ return counts[i] ? Math.round(t / counts[i]) : 0; });
+    _buildBarChart(canvasId, days, avgs, color, 'Avg J$');
+  }
+
   function loadSalesCharts() {
     if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
 
@@ -2292,11 +2327,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       .then(function(res) {
         if (res.result !== 'success') return;
         var rows = res.rows || [];
-        // Daily bar chart
         var dates  = rows.map(function(r){ var p=r.date.split(' '); return p.length===2 ? [p[0],p[1]] : [r.date]; });
         var totals = rows.map(function(r){ return r.total; });
         _buildBarChart('chart-lunch-daily', dates, totals, '#1A2E6B', 'Canteen+Office J$');
-        // Product doughnut — sum across all days
         var allProducts = {};
         rows.forEach(function(r) {
           Object.keys(r.products || {}).forEach(function(k) {
@@ -2305,6 +2338,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         });
         var pKeys = Object.keys(allProducts);
         if (pKeys.length) _buildDoughnutChart('chart-lunch-products', pKeys, pKeys.map(function(k){ return allProducts[k]; }));
+        _buildWeekdayChart('chart-lunch-weekday', rows, '#1A2E6B');
       })
       .catch(function(e){ console.error('lunch history error:', e); });
 
@@ -2326,6 +2360,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         });
         var pKeys = Object.keys(allProducts);
         if (pKeys.length) _buildDoughnutChart('chart-tuckshop-products', pKeys, pKeys.map(function(k){ return allProducts[k]; }));
+        _buildWeekdayChart('chart-tuckshop-weekday', rows, '#00C851');
       })
       .catch(function(e){ console.error('tuckshop history error:', e); });
   }
