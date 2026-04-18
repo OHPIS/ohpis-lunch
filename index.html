@@ -2206,11 +2206,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var ctx = document.getElementById(canvasId);
     if (!ctx) return;
     var barWidth = 70;
-    var minBars  = 6; // always show at least 6 slots so bars aren't huge
-    var slots    = Math.max(labels.length, minBars);
     var wrapEl   = ctx.parentElement;
     var wrapW    = wrapEl ? wrapEl.offsetWidth : 320;
-    var canvasW  = Math.max(wrapW, slots * barWidth);
+    var canvasW  = Math.max(wrapW, labels.length * barWidth);
     ctx.style.width  = canvasW + 'px';
     ctx.style.height = '220px';
     ctx.width  = canvasW;
