@@ -452,7 +452,9 @@
       <div class="section-label">📈 Sales History</div>
       <div style="margin-top:0.75rem;">
         <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen + Office — Daily Total (J$)</div>
-        <canvas id="chart-lunch-daily" height="160"></canvas>
+        <div id="chart-lunch-daily-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+          <canvas id="chart-lunch-daily" height="200"></canvas>
+        </div>
       </div>
       <div style="margin-top:1.5rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
         <div>
@@ -466,7 +468,9 @@
       </div>
       <div style="margin-top:1.5rem;">
         <div style="font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tuckshop — Daily Total (J$)</div>
-        <canvas id="chart-tuckshop-daily" height="160"></canvas>
+        <div id="chart-tuckshop-daily-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+          <canvas id="chart-tuckshop-daily" height="200"></canvas>
+        </div>
       </div>
       <button type="button" onclick="loadSalesCharts()" style="margin-top:0.8rem;width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.5rem;cursor:pointer;">↻ Refresh Charts</button>
     </div>
@@ -2201,17 +2205,28 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     _destroyChart(canvasId);
     var ctx = document.getElementById(canvasId);
     if (!ctx) return;
+    var barWidth = 60; // px per bar
+    var minWidth = ctx.parentElement ? ctx.parentElement.offsetWidth : 300;
+    var canvasWidth = Math.max(minWidth, labels.length * barWidth);
+    ctx.style.width  = canvasWidth + 'px';
+    ctx.style.height = '200px';
+    ctx.width  = canvasWidth;
+    ctx.height = 200;
     _chartInstances[canvasId] = new Chart(ctx, {
       type: 'bar',
       data: {
         labels: labels,
-        datasets: [{ label: label, data: data, backgroundColor: color, borderRadius: 4 }]
+        datasets: [{ label: label, data: data, backgroundColor: color, borderRadius: 5 }]
       },
       options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { font: { size: 11 } } },
-                  x: { ticks: { font: { size: 10 } } } }
+        responsive: false,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: function(c){ return 'J$ ' + Number(c.parsed.y).toLocaleString('en-US',{minimumFractionDigits:2}); } } }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { font: { size: 11 }, callback: function(v){ return 'J$' + Number(v).toLocaleString(); } } },
+          x: { ticks: { font: { size: 11 }, maxRotation: 0, minRotation: 0 } }
+        }
       }
     });
   }
