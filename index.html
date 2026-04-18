@@ -869,10 +869,28 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       MENU_LUNCH_TYPES.map(function(t) {
         return '<option' + (t === selectedName ? ' selected' : '') + '>' + t + '</option>';
       }).join('');
-    div.innerHTML =
-      '<select>' + opts + '</select>' +
-      '<input type="text" placeholder="Price (e.g. 250)" value="' + (selectedPrice || '') + '" />' +
-      '<button type="button" class="btn-remove" onclick="document.getElementById(\'' + id + '\').remove()">✕</button>';
+    var sel = document.createElement('select');
+    sel.innerHTML = opts;
+    var priceInput = document.createElement('input');
+    priceInput.type = 'text';
+    priceInput.placeholder = 'Price (e.g. 250)';
+    priceInput.value = selectedPrice || '';
+    sel.onchange = function() {
+      var name = this.value;
+      if (!name) return;
+      var match = null;
+      (LUNCH_TYPES_CLASS || []).forEach(function(t) { if (t.name === name) match = t.price; });
+      if (!match) (LUNCH_TYPES_OFFICE || []).forEach(function(t) { if (t.name === name) match = t.price; });
+      if (match) priceInput.value = match;
+    };
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-remove';
+    removeBtn.textContent = '✕';
+    removeBtn.onclick = function() { document.getElementById(id).remove(); };
+    div.appendChild(sel);
+    div.appendChild(priceInput);
+    div.appendChild(removeBtn);
     document.getElementById('menu-rows').appendChild(div);
   }
 
