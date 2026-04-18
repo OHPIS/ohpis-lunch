@@ -182,6 +182,7 @@
     .autocomplete-item:hover { background: var(--blue-l); color: var(--blue); }
   </style>
 </head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <body>
 
 <header class="site-header">
@@ -444,6 +445,30 @@
         </div>
       </div>
       <button type="button" onclick="loadSalesSummary()" style="margin-top:0.8rem;width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.5rem;cursor:pointer;">↻ Refresh</button>
+    </div>
+
+    <!-- SALES HISTORY CHARTS -->
+    <div class="card" style="margin-top:1rem;">
+      <div class="section-label">📈 Sales History</div>
+      <div style="margin-top:0.75rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen + Office — Daily Total (J$)</div>
+        <canvas id="chart-lunch-daily" height="160"></canvas>
+      </div>
+      <div style="margin-top:1.5rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div>
+          <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen+Office Products</div>
+          <canvas id="chart-lunch-products" height="200"></canvas>
+        </div>
+        <div>
+          <div style="font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tuckshop Products</div>
+          <canvas id="chart-tuckshop-products" height="200"></canvas>
+        </div>
+      </div>
+      <div style="margin-top:1.5rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tuckshop — Daily Total (J$)</div>
+        <canvas id="chart-tuckshop-daily" height="160"></canvas>
+      </div>
+      <button type="button" onclick="loadSalesCharts()" style="margin-top:0.8rem;width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.5rem;cursor:pointer;">↻ Refresh Charts</button>
     </div>
   </div>
 
@@ -975,6 +1000,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     if (tab === 'office') {
       loadOfficeNames();
       loadSalesSummary();
+      loadSalesCharts();
     }
     if (tab === 'tuckshop') {
       // Only load products from Sheet on first visit
@@ -2155,6 +2181,115 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       .catch(function(e) { console.error('loadLunchTypes error:', e); });
   }
   loadLunchTypes();
+
+  // ── Sales History Charts ─────────────────────────────────────
+  var _chartInstances = {};
+
+  function _destroyChart(id) {
+    if (_chartInstances[id]) { _chartInstances[id].destroy(); delete _chartInstances[id]; }
+  }
+
+  function _palette(n) {
+    var base = ['#1A2E6B','#2196F3','#00C851','#FF6D00','#FFD600','#E91E63',
+                '#9C27B0','#00BCD4','#FF5722','#8BC34A','#607D8B','#795548'];
+    var out = [];
+    for (var i = 0; i < n; i++) out.push(base[i % base.length]);
+    return out;
+  }
+
+  function _buildBarChart(canvasId, labels, data, color, label) {
+    _destroyChart(canvasId);
+    var ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    _chartInstances[canvasId] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{ label: label, data: data, backgroundColor: color, borderRadius: 4 }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { font: { size: 11 } } },
+                  x: { ticks: { font: { size: 10 } } } }
+      }
+    });
+  }
+
+  function _buildDoughnutChart(canvasId, labels, data) {
+    _destroyChart(canvasId);
+    var ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    _chartInstances[canvasId] = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{ data: data, backgroundColor: _palette(data.length), borderWidth: 1 }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                var total = ctx.dataset.data.reduce(function(a,b){return a+b;},0);
+                var pct = total ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                return ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function loadSalesCharts() {
+    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
+
+    // Lunch history
+    fetch(SCRIPT_URL + '?action=getSalesHistory')
+      .then(function(r){ return r.json(); })
+      .then(function(res) {
+        if (res.result !== 'success') return;
+        var rows = res.rows || [];
+        // Daily bar chart
+        var dates  = rows.map(function(r){ return r.date.slice(5); }); // MM-DD
+        var totals = rows.map(function(r){ return r.total; });
+        _buildBarChart('chart-lunch-daily', dates, totals, '#1A2E6B', 'Canteen+Office J$');
+        // Product doughnut — sum across all days
+        var allProducts = {};
+        rows.forEach(function(r) {
+          Object.keys(r.products || {}).forEach(function(k) {
+            allProducts[k] = (allProducts[k] || 0) + (r.products[k] || 0);
+          });
+        });
+        var pKeys = Object.keys(allProducts);
+        if (pKeys.length) _buildDoughnutChart('chart-lunch-products', pKeys, pKeys.map(function(k){ return allProducts[k]; }));
+      })
+      .catch(function(e){ console.error('lunch history error:', e); });
+
+    // Tuckshop history
+    if (TUCKSHOP_SCRIPT_URL === 'YOUR_TUCKSHOP_SCRIPT_URL_HERE') return;
+    fetch(TUCKSHOP_SCRIPT_URL + '?action=getSalesHistory')
+      .then(function(r){ return r.json(); })
+      .then(function(res) {
+        if (res.result !== 'success') return;
+        var rows = res.rows || [];
+        var dates  = rows.map(function(r){ return r.date.slice(5); });
+        var totals = rows.map(function(r){ return r.total; });
+        _buildBarChart('chart-tuckshop-daily', dates, totals, '#00C851', 'Tuckshop J$');
+        var allProducts = {};
+        rows.forEach(function(r) {
+          Object.keys(r.products || {}).forEach(function(k) {
+            allProducts[k] = (allProducts[k] || 0) + (r.products[k] || 0);
+          });
+        });
+        var pKeys = Object.keys(allProducts);
+        if (pKeys.length) _buildDoughnutChart('chart-tuckshop-products', pKeys, pKeys.map(function(k){ return allProducts[k]; }));
+      })
+      .catch(function(e){ console.error('tuckshop history error:', e); });
+  }
 
   pendingTab = 'classes';
 </script>
