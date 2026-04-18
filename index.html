@@ -233,6 +233,7 @@
     <button class="tab-btn" onclick="switchTab('classes')">Classes</button>
     <button class="tab-btn" onclick="switchTab('office')">Office</button>
     <button class="tab-btn" onclick="switchTab('tuckshop')">Tuckshop</button>
+    <button class="tab-btn" onclick="switchTab('admin')">Admin</button>
   </div>
 
   <!-- ══════════ CLASSES TAB ══════════ -->
@@ -632,6 +633,24 @@
     </div>
   </div>
 
+  <!-- ══════════ ADMIN TAB ══════════ -->
+  <div class="tab-panel" id="tab-admin">
+    <div class="card">
+      <div class="section-label">🛠️ Lunch Type Manager</div>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0.5rem 0 1rem;">Add, edit or remove lunch types and prices for Classes and Office forms.</p>
+      <div style="display:grid;grid-template-columns:1fr 90px 90px 36px;gap:6px;margin-bottom:4px;">
+        <span style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Lunch Type</span>
+        <span style="font-size:0.75rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.05em;">Class J$</span>
+        <span style="font-size:0.75rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.05em;">Office J$</span>
+        <span></span>
+      </div>
+      <div id="admin-items" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;"></div>
+      <button type="button" onclick="adminAddRow()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px dashed var(--border);border-radius:var(--radius);color:var(--muted);padding:0.6rem;cursor:pointer;margin-bottom:1rem;">+ Add Lunch Type</button>
+      <div id="admin-status" style="display:none;padding:0.7rem 1rem;border-radius:10px;font-size:0.88rem;margin-bottom:0.8rem;"></div>
+      <button type="button" onclick="adminSave()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:0.75rem;cursor:pointer;">💾 Save Changes</button>
+    </div>
+  </div>
+
 </div>
 
 <div class="site-footer">
@@ -656,6 +675,7 @@
   var PW_OFFICE        = 'office2026';
   var PW_TUCKSHOP      = 'tuckshop2026';
   var PW_TUCKSHOP_EDIT = 'Tuckshop2026';
+  var PW_ADMIN         = 'admin2026';
 
 const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEbyjkhmY3jUI-vsDrPDV-jXn0SgvXTO1z_zYf4r-_zvKSSepwRDecIlBeDGg/exec";
   var tuckshopProducts    = [];
@@ -859,6 +879,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 
   var appUnlocked = false;
   var officeUnlocked = false;
+  var adminUnlocked = false;
 
   // Use Jamaica timezone (UTC-5) for today's date
   function getJamaicaToday() {
@@ -940,6 +961,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       showModal('🏢 Office Access', 'Enter the Office password to continue.');
       return;
     }
+    if (tab === 'admin' && !adminUnlocked) {
+      pendingTab = tab;
+      showModal('🛠️ Admin Access', 'Enter the Admin password to continue.');
+      return;
+    }
     // Tuckshop tab is open — no password needed to enter
     activateTab(tab);
   }
@@ -972,6 +998,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       if (entered === PW_GENERAL) { appUnlocked = true; correct = true; action = 'unlock'; }
     } else if (pendingTab === 'office') {
       if (entered === PW_OFFICE) { officeUnlocked = true; correct = true; action = 'office'; }
+    } else if (pendingTab === 'admin') {
+      if (entered === PW_ADMIN) { adminUnlocked = true; correct = true; action = 'admin'; }
     }
 
     if (correct) {
@@ -1007,26 +1035,29 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       b.classList.toggle('active',
         (i === 0 && tab === 'classes') ||
         (i === 1 && tab === 'office')  ||
-        (i === 2 && tab === 'tuckshop')
+        (i === 2 && tab === 'tuckshop') ||
+        (i === 3 && tab === 'admin')
       );
     });
     document.getElementById('tab-classes').classList.toggle('active',   tab === 'classes');
     document.getElementById('tab-office').classList.toggle('active',    tab === 'office');
     document.getElementById('tab-tuckshop').classList.toggle('active',  tab === 'tuckshop');
+    document.getElementById('tab-admin').classList.toggle('active',     tab === 'admin');
     if (tab === 'office') {
       loadOfficeNames();
       loadSalesSummary();
       loadSalesCharts();
     }
     if (tab === 'tuckshop') {
-      // Only load products from Sheet on first visit
-      // Reload products/stock from GS every time tab is opened
       tuckshopInitialized = true;
       loadTuckshopProducts();
       document.getElementById('t-date').value = today;
       if (!document.getElementById('t-items').children.length) {
         addTuckshopOrderRow();
       }
+    }
+    if (tab === 'admin') {
+      loadAdminPanel();
     }
   }
 
@@ -2363,6 +2394,101 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         _buildWeekdayChart('chart-tuckshop-weekday', rows, '#00C851');
       })
       .catch(function(e){ console.error('tuckshop history error:', e); });
+  }
+
+  // ── ADMIN PANEL ──────────────────────────────────────────────
+  function loadAdminPanel() {
+    var container = document.getElementById('admin-items');
+    container.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:1rem;">Loading...</div>';
+    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+      container.innerHTML = '';
+      adminAddRow(); return;
+    }
+    fetch(SCRIPT_URL + '?action=getLunchTypes')
+      .then(function(r){ return r.json(); })
+      .then(function(res) {
+        container.innerHTML = '';
+        if (res.result !== 'success') { adminAddRow(); return; }
+        // Merge classTypes and officeTypes into a unified list
+        var merged = {};
+        (res.classTypes || []).forEach(function(t) {
+          merged[t.name] = { name: t.name, classPrice: t.price, officePrice: null };
+        });
+        (res.officeTypes || []).forEach(function(t) {
+          if (merged[t.name]) merged[t.name].officePrice = t.price;
+          else merged[t.name] = { name: t.name, classPrice: null, officePrice: t.price };
+        });
+        Object.values(merged).forEach(function(item) {
+          adminAddRow(item.name, item.classPrice, item.officePrice);
+        });
+        if (Object.keys(merged).length === 0) adminAddRow();
+      })
+      .catch(function() { container.innerHTML = ''; adminAddRow(); });
+  }
+
+  var adminRowCounter = 0;
+  function adminAddRow(name, classPrice, officePrice) {
+    adminRowCounter++;
+    var id = 'admin-row-' + adminRowCounter;
+    var div = document.createElement('div');
+    div.id = id;
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 90px 90px 36px;gap:6px;align-items:center;';
+    var nameInput = document.createElement('input');
+    nameInput.type = 'text'; nameInput.placeholder = 'Lunch type name';
+    nameInput.value = name || '';
+    nameInput.style.cssText = 'font-family:\'DM Sans\',sans-serif;font-size:0.88rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.45rem 0.7rem;outline:none;width:100%;';
+    var cpInput = document.createElement('input');
+    cpInput.type = 'number'; cpInput.placeholder = 'Class J$';
+    cpInput.value = classPrice != null ? classPrice : '';
+    cpInput.style.cssText = nameInput.style.cssText;
+    cpInput.title = 'Class price (leave blank to exclude from Classes)';
+    var opInput = document.createElement('input');
+    opInput.type = 'number'; opInput.placeholder = 'Office J$';
+    opInput.value = officePrice != null ? officePrice : '';
+    opInput.style.cssText = nameInput.style.cssText;
+    opInput.title = 'Office price (leave blank to exclude from Office)';
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button'; removeBtn.textContent = '✕';
+    removeBtn.style.cssText = 'background:#fdf0f0;border:1.5px solid #f5bfbf;color:#B22234;border-radius:var(--radius);padding:0.45rem 0.6rem;cursor:pointer;font-size:0.85rem;';
+    removeBtn.onclick = function() { document.getElementById(id).remove(); };
+    div.appendChild(nameInput); div.appendChild(cpInput);
+    div.appendChild(opInput);  div.appendChild(removeBtn);
+    document.getElementById('admin-items').appendChild(div);
+  }
+
+  async function adminSave() {
+    var statusEl = document.getElementById('admin-status');
+    var rows = [];
+    document.getElementById('admin-items').querySelectorAll('div[id^="admin-row-"]').forEach(function(row) {
+      var inputs = row.querySelectorAll('input');
+      var name   = inputs[0].value.trim();
+      var cp     = inputs[1].value !== '' ? parseFloat(inputs[1].value) : null;
+      var op     = inputs[2].value !== '' ? parseFloat(inputs[2].value) : null;
+      if (name) rows.push({ name: name, classPrice: cp, officePrice: op });
+    });
+    if (!rows.length) {
+      statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
+      statusEl.textContent = 'Please add at least one lunch type.';
+      return;
+    }
+    statusEl.style.cssText = 'display:block;background:#f0f4ff;border:1px solid #c0ccf0;color:#1A2E6B;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
+    statusEl.textContent = 'Saving...';
+    try {
+      var response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'saveLunchTypes', rows: rows }),
+        headers: { 'Content-Type': 'text/plain' }
+      });
+      var result = await response.json();
+      if (result.result === 'success') {
+        statusEl.style.cssText = 'display:block;background:#e8f5ee;border:1px solid #a8d5b8;color:#1a5c2e;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
+        statusEl.textContent = '✅ Saved! Forms will use new prices on next load.';
+        loadLunchTypes(); // refresh in-memory types
+      } else { throw new Error(result.message); }
+    } catch(e) {
+      statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
+      statusEl.textContent = '❌ Error saving. Please try again.';
+    }
   }
 
   pendingTab = 'classes';
