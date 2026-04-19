@@ -214,7 +214,7 @@
     /* ── EDIT ORDER ── */
     .edit-order-btn { font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600; background: none; border: 1.5px solid var(--border); border-radius: var(--radius); color: var(--muted); padding: 0.5rem 1.2rem; cursor: pointer; margin-top: 1rem; width: 100%; transition: all 0.18s; }
     .edit-order-btn:hover { border-color: var(--gold); color: var(--gold); }
-    .edit-panel { display: none; margin-top: 1.2rem; border-top: 1px solid var(--border); padding-top: 1.2rem; }
+    .edit-panel { display: none; margin-top: 1.2rem; border-top: 1px solid var(--border); padding-top: 1.2rem; position: relative; }
     .edit-panel.open { display: block; }
     .edit-search { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; margin-bottom: 1rem; }
     .edit-search label { font-size: 0.82rem; font-weight: 500; color: var(--muted); display: block; margin-bottom: 4px; }
@@ -236,7 +236,13 @@
     .autocomplete-item:hover { background: var(--blue-l); color: var(--blue); }
   </style>
 </head>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
+  function closePanel(btn) {
+    var panel = btn.closest('.edit-panel');
+    if (panel) panel.classList.remove('open');
+  }
+
+</script>
 <body>
 
 <header class="site-header">
@@ -349,6 +355,7 @@
         <button type="button" id="c-edit-canteen-btn" class="edit-order-btn" onclick="toggleEditPanel('c')">✏️ Edit Class Order</button>
         <button type="button" class="edit-order-btn" style="margin-top:0.5rem;border-color:var(--blue);color:var(--blue);" onclick="toggleCheckStatus()">🔍 Check Class or Office Order Status</button>
         <div class="edit-panel" id="c-check-status-panel">
+          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
           <div style="display:flex;gap:8px;margin-bottom:1rem;">
             <button type="button" id="chs-tab-class" onclick="switchCheckTab('class')" style="flex:1;padding:0.5rem;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;cursor:pointer;background:var(--blue);color:#fff;border:1.5px solid var(--blue);">Class</button>
             <button type="button" id="chs-tab-office" onclick="switchCheckTab('office')" style="flex:1;padding:0.5rem;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;cursor:pointer;background:var(--white);color:var(--muted);border:1.5px solid var(--border);">Office</button>
@@ -380,6 +387,7 @@
           </div>
         </div>
         <div class="edit-panel" id="c-edit-panel">
+          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
           <div class="edit-search">
             <div>
               <label>Class</label>
@@ -461,6 +469,7 @@
 
         <button type="button" class="edit-order-btn" onclick="toggleEditPanel('o')">✏️ Edit Office Order</button>
         <div class="edit-panel" id="o-edit-panel">
+          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
           <div class="edit-search">
             <div>
               <label>Name</label>
@@ -633,6 +642,7 @@
         <button type="button" class="edit-order-btn" onclick="toggleEditPanel('t')">✏️ Edit Tuckshop Order</button>
         <button type="button" class="edit-order-btn" style="margin-top:0.5rem;border-color:var(--blue);color:var(--blue);" onclick="toggleCheckStatusTuckshop()">🔍 Check Tuckshop Order Status</button>
         <div class="edit-panel" id="t-check-status-panel">
+          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
           <div class="edit-search">
             <div><label>Class</label>
               <select id="ths-class">
@@ -655,6 +665,7 @@
           </div>
         </div>
         <div class="edit-panel" id="t-edit-panel">
+          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
           <div class="edit-search">
             <div><label>Class</label>
               <select id="t-edit-class">
