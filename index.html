@@ -236,13 +236,7 @@
     .autocomplete-item:hover { background: var(--blue-l); color: var(--blue); }
   </style>
 </head>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
-  function closePanel(btn) {
-    var panel = btn.closest('.edit-panel');
-    if (panel) panel.classList.remove('open');
-  }
-
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <body>
 
 <header class="site-header">
@@ -2662,6 +2656,12 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
   pendingTab = 'classes';
+
+  function closePanel(btn) {
+    var panel = btn.closest('.edit-panel');
+    if (panel) panel.classList.remove('open');
+  }
+
 </script>
 </body>
 </html>
