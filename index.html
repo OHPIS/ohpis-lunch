@@ -981,6 +981,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     return cls === 'Infant 1H' || cls === 'Infant 1T' || cls === 'Infant 2L' || cls === 'Infant 2K';
   }
 
+  var devOverride = false;
+
   function isClassWindowOpen(cls) {
     if (devOverride) return true;
     var t = getJamaicaHourMinute();
