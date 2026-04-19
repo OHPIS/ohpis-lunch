@@ -2151,6 +2151,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 
   // Apply classes lock if after 9AM
   applyClassesLock();
+  setInterval(applyClassesLock, 60000); // re-check every minute
 
   // Show general password modal immediately — nothing visible until unlocked
   // ── CHECK ORDER STATUS ──
