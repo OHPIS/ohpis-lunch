@@ -703,6 +703,9 @@
       <button type="button" onclick="adminAddRow()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px dashed var(--border);border-radius:var(--radius);color:var(--muted);padding:0.6rem;cursor:pointer;margin-bottom:1rem;">+ Add Lunch Type</button>
       <div id="admin-status" style="display:none;padding:0.7rem 1rem;border-radius:10px;font-size:0.88rem;margin-bottom:0.8rem;"></div>
       <button type="button" onclick="adminSave()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:0.75rem;cursor:pointer;">💾 Save Changes</button>
+      <hr style="border:none;border-top:1px solid var(--border);margin:1.2rem 0;">
+      <div style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.6rem;">Developer</div>
+      <button type="button" id="dev-override-btn" onclick="toggleDevOverride()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.6rem;cursor:pointer;">🔓 Enable Classes (bypass time lock)</button>
     </div>
   </div>
 
@@ -979,11 +982,29 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
   function isClassWindowOpen(cls) {
+    if (devOverride) return true;
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    var open  = 7 * 60 + 30; // 7:30 AM
-    var close = isInfantClass(cls) ? (9 * 60 + 30) : (9 * 60); // 9:30 or 9:00
+    var open  = 7 * 60 + 30;
+    var close = isInfantClass(cls) ? (9 * 60 + 30) : (9 * 60);
     return mins >= open && mins < close;
+  }
+
+  function toggleDevOverride() {
+    devOverride = !devOverride;
+    var btn = document.getElementById('dev-override-btn');
+    if (devOverride) {
+      btn.textContent = '🔒 Disable Classes override (active)';
+      btn.style.background    = '#e8f5ee';
+      btn.style.borderColor   = 'var(--green)';
+      btn.style.color         = 'var(--green)';
+    } else {
+      btn.textContent = '🔓 Enable Classes (bypass time lock)';
+      btn.style.background  = '';
+      btn.style.borderColor = 'var(--border)';
+      btn.style.color       = 'var(--muted)';
+    }
+    applyClassesLock();
   }
 
   function applyClassesLock() {
