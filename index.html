@@ -1148,21 +1148,34 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     return '<option value="">— Price —</option>' + PRICES.map(function(p){ return '<option>' + p + '</option>'; }).join('');
   }
 
+  function _lockPriceSel(priceSel) {
+    priceSel.style.pointerEvents = 'none';
+    priceSel.style.background    = 'var(--bg)';
+    priceSel.style.color         = 'var(--text)';
+    priceSel.style.cursor        = 'default';
+    priceSel.style.borderColor   = 'var(--border)';
+  }
+
   function addRow(prefix) {
     rowCounter++;
     var id  = prefix + '-row-' + rowCounter;
     var div = document.createElement('div');
     div.className = 'item-row';
     div.id = id;
-    // Lunch type select
     var lunchSel = document.createElement('select');
     lunchSel.innerHTML = lunchOptions(prefix);
-    // Price select
     var priceSel = document.createElement('select');
     priceSel.innerHTML = priceOptions();
-    // Auto-fill price when lunch type changes
     lunchSel.onchange = function() {
-      if (this.value) priceSel.value = this.value;
+      if (this.value) {
+        priceSel.value = this.value;
+        _lockPriceSel(priceSel);
+      } else {
+        priceSel.value = '';
+        priceSel.style.pointerEvents = '';
+        priceSel.style.background = '';
+        priceSel.style.cursor = '';
+      }
       calcGrand(prefix);
     };
     priceSel.onchange = function() { calcGrand(prefix); };
@@ -1480,9 +1493,20 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     lunchSel.innerHTML = opts;
     var priceSel = document.createElement('select');
     priceSel.innerHTML = priceOpts;
-    if (selectedPrice) priceSel.value = String(selectedPrice);
+    if (selectedPrice) {
+      priceSel.value = String(selectedPrice);
+      _lockPriceSel(priceSel);
+    }
     lunchSel.onchange = function() {
-      if (this.value) priceSel.value = this.value;
+      if (this.value) {
+        priceSel.value = this.value;
+        _lockPriceSel(priceSel);
+      } else {
+        priceSel.value = '';
+        priceSel.style.pointerEvents = '';
+        priceSel.style.background = '';
+        priceSel.style.cursor = '';
+      }
       calcEditGrand(realPrefix);
     };
     priceSel.onchange = function() { calcEditGrand(realPrefix); };
