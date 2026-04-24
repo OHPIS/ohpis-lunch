@@ -593,7 +593,7 @@
     <!-- ORDER CARD (separate from editor) -->
     <div class="card">
       <div class="section-label">Class Tuckshop Order</div>
-      <div id="tuckshop-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;"><span>
+      <div id="tuckshop-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
         🔒 Products not updated for today. Orders are not available.
       </div>
       <form id="tuckshopForm" novalidate>
@@ -795,8 +795,6 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       label.textContent += ' ⚠️ Not updated today';
     } else {
       label.classList.remove('stale');
-      // Store today's menu items for validation
-      todayMenuItems = (saved.items || []).map(function(i){ return i.name.toLowerCase().trim(); });
     }
 
     var display = document.getElementById('menu-display');
@@ -840,7 +838,6 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
   var pendingMenuAction = false;
-  var todayMenuItems = []; // names of items on today's menu
 
   function toggleEditor() {
     var editor = document.getElementById('menu-editor');
@@ -1007,16 +1004,14 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var addRowBtn = document.querySelector('#tab-tuckshop .btn-add-row');
     var editBtn   = document.querySelector('#tab-tuckshop .edit-order-btn');
     if (!open) {
-      if (lockMsg)   { lockMsg.style.display = 'block'; lockMsg.querySelector('span') && (lockMsg.querySelector('span').textContent = 'Tuckshop orders accepted 7:30 AM – 9:30 AM only.'); }
+      if (lockMsg)   lockMsg.style.display = 'block';
       if (submitBtn) { submitBtn.disabled = true;  submitBtn.style.background = '#8f9dc7'; }
       if (addRowBtn) addRowBtn.disabled = true;
       if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
     } else {
-      // Only unlock if products are loaded for today (existing logic handles stale check)
-      var isProductsToday = (tuckshopDate === getJamaicaToday());
-      if (lockMsg)   lockMsg.style.display = isProductsToday ? 'none' : 'block';
-      if (submitBtn) { submitBtn.disabled = !isProductsToday; submitBtn.style.background = isProductsToday ? '' : '#8f9dc7'; }
-      if (addRowBtn) addRowBtn.disabled = !isProductsToday;
+      if (lockMsg)   lockMsg.style.display = 'none';
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.style.background = ''; }
+      if (addRowBtn) addRowBtn.disabled = false;
       if (editBtn)   { editBtn.disabled = false; editBtn.style.opacity = ''; editBtn.style.cursor = ''; }
     }
   }
@@ -1246,20 +1241,6 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     priceSel.innerHTML = priceOptions();
     lunchSel.onchange = function() {
       if (this.value) {
-        // Validate against today's menu for Classes and Office only
-        if ((prefix === 'c' || prefix === 'o') && todayMenuItems.length > 0) {
-          var selected = this.value.toLowerCase().trim();
-          if (todayMenuItems.indexOf(selected) === -1) {
-            alert('⚠️ "' + this.value + '" is not available on today\'s menu.\nPlease select an item from Today\'s Menu.');
-            this.value = '';
-            priceSel.value = '';
-            priceSel.style.pointerEvents = '';
-            priceSel.style.background = '';
-            priceSel.style.cursor = '';
-            calcGrand(prefix);
-            return;
-          }
-        }
         priceSel.value = this.value;
         _lockPriceSel(priceSel);
       } else {
