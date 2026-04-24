@@ -780,6 +780,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       .catch(function(err) { console.error('Menu load error:', err); });
   }
 
+  var todayMenuItems = [];
+
   function renderMenu(saved) {
     if (!saved) return;
     var label    = document.getElementById('menu-date-label');
@@ -790,6 +792,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     dateStr = dateStr.replace(/'/g, '').trim().substring(0, 10);
 
     label.textContent = formatDate(dateStr);
+    todayMenuItems = (saved.items || []).map(function(i){ return i.name.toLowerCase().trim(); });
     if (dateStr !== todayStr) {
       label.classList.add('stale');
       label.textContent += ' ⚠️ Not updated today';
@@ -1241,11 +1244,29 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     lunchSel.innerHTML = lunchOptions(prefix);
     var priceSel = document.createElement('select');
     priceSel.innerHTML = priceOptions();
+    var menuWarn = document.createElement('span');
+    menuWarn.style.cssText = 'display:none;color:#CC0000;font-size:0.78rem;grid-column:1/-1;';
+    menuWarn.textContent = "⚠️ Not available in today’s menu";
     lunchSel.onchange = function() {
       if (this.value) {
+        if ((prefix === 'c' || prefix === 'o') && todayMenuItems.length > 0) {
+          var sel = this.value.toLowerCase().trim();
+          var ok  = todayMenuItems.some(function(m){ return m === sel || sel.indexOf(m) !== -1 || m.indexOf(sel) !== -1; });
+          if (!ok) {
+            menuWarn.style.display = 'block';
+            priceSel.value = '';
+            priceSel.style.pointerEvents = '';
+            priceSel.style.background = '';
+            priceSel.style.cursor = '';
+            calcGrand(prefix);
+            return;
+          }
+        }
+        menuWarn.style.display = 'none';
         priceSel.value = this.value;
         _lockPriceSel(priceSel);
       } else {
+        menuWarn.style.display = 'none';
         priceSel.value = '';
         priceSel.style.pointerEvents = '';
         priceSel.style.background = '';
@@ -1266,6 +1287,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     removeBtn.onclick = function() { document.getElementById(id).remove(); calcGrand(prefix); };
     div.appendChild(lunchSel); div.appendChild(amtInput);
     div.appendChild(priceSel); div.appendChild(subtotal); div.appendChild(removeBtn);
+    div.appendChild(menuWarn);
     document.getElementById(prefix + '-items').appendChild(div);
   }
 
