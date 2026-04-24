@@ -593,7 +593,7 @@
     <!-- ORDER CARD (separate from editor) -->
     <div class="card">
       <div class="section-label">Class Tuckshop Order</div>
-      <div id="tuckshop-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
+      <div id="tuckshop-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;"><span>
         🔒 Products not updated for today. Orders are not available.
       </div>
       <form id="tuckshopForm" novalidate>
@@ -711,6 +711,7 @@
       <hr style="border:none;border-top:1px solid var(--border);margin:1.2rem 0;">
       <div style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.6rem;">Developer</div>
       <button type="button" id="dev-override-btn" onclick="toggleDevOverride()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.6rem;cursor:pointer;">🔓 Enable Classes (bypass time lock)</button>
+      <button type="button" id="dev-override-tuckshop-btn" onclick="toggleDevOverrideTuckshop()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.6rem;cursor:pointer;margin-top:0.5rem;">🔓 Enable Tuckshop (bypass time lock)</button>
     </div>
   </div>
 
@@ -794,6 +795,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       label.textContent += ' ⚠️ Not updated today';
     } else {
       label.classList.remove('stale');
+      // Store today's menu items for validation
+      todayMenuItems = (saved.items || []).map(function(i){ return i.name.toLowerCase().trim(); });
     }
 
     var display = document.getElementById('menu-display');
@@ -837,6 +840,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
   var pendingMenuAction = false;
+  var todayMenuItems = []; // names of items on today's menu
 
   function toggleEditor() {
     var editor = document.getElementById('menu-editor');
@@ -987,6 +991,52 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
   var devOverride = false;
+  var devOverrideTuckshop = false;
+
+  function isTuckshopWindowOpen() {
+    if (devOverrideTuckshop) return true;
+    var t = getJamaicaHourMinute();
+    var mins = t.h * 60 + t.m;
+    return mins >= (7 * 60 + 30) && mins < (9 * 60 + 30);
+  }
+
+  function applyTuckshopTimeLock() {
+    var open      = isTuckshopWindowOpen();
+    var lockMsg   = document.getElementById('tuckshop-lock-msg');
+    var submitBtn = document.querySelector('#tuckshopForm button[type="submit"]');
+    var addRowBtn = document.querySelector('#tab-tuckshop .btn-add-row');
+    var editBtn   = document.querySelector('#tab-tuckshop .edit-order-btn');
+    if (!open) {
+      if (lockMsg)   { lockMsg.style.display = 'block'; lockMsg.querySelector('span') && (lockMsg.querySelector('span').textContent = 'Tuckshop orders accepted 7:30 AM – 9:30 AM only.'); }
+      if (submitBtn) { submitBtn.disabled = true;  submitBtn.style.background = '#8f9dc7'; }
+      if (addRowBtn) addRowBtn.disabled = true;
+      if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
+    } else {
+      // Only unlock if products are loaded for today (existing logic handles stale check)
+      var isProductsToday = (tuckshopDate === getJamaicaToday());
+      if (lockMsg)   lockMsg.style.display = isProductsToday ? 'none' : 'block';
+      if (submitBtn) { submitBtn.disabled = !isProductsToday; submitBtn.style.background = isProductsToday ? '' : '#8f9dc7'; }
+      if (addRowBtn) addRowBtn.disabled = !isProductsToday;
+      if (editBtn)   { editBtn.disabled = false; editBtn.style.opacity = ''; editBtn.style.cursor = ''; }
+    }
+  }
+
+  function toggleDevOverrideTuckshop() {
+    devOverrideTuckshop = !devOverrideTuckshop;
+    var btn = document.getElementById('dev-override-tuckshop-btn');
+    if (devOverrideTuckshop) {
+      btn.textContent = '🔒 Disable Tuckshop override (active)';
+      btn.style.background  = '#e8f5ee';
+      btn.style.borderColor = 'var(--green)';
+      btn.style.color       = 'var(--green)';
+    } else {
+      btn.textContent = '🔓 Enable Tuckshop (bypass time lock)';
+      btn.style.background  = '';
+      btn.style.borderColor = 'var(--border)';
+      btn.style.color       = 'var(--muted)';
+    }
+    applyTuckshopTimeLock();
+  }
 
   function isClassWindowOpen(cls) {
     if (devOverride) return true;
@@ -1196,6 +1246,20 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     priceSel.innerHTML = priceOptions();
     lunchSel.onchange = function() {
       if (this.value) {
+        // Validate against today's menu for Classes and Office only
+        if ((prefix === 'c' || prefix === 'o') && todayMenuItems.length > 0) {
+          var selected = this.value.toLowerCase().trim();
+          if (todayMenuItems.indexOf(selected) === -1) {
+            alert('⚠️ "' + this.value + '" is not available on today\'s menu.\nPlease select an item from Today\'s Menu.');
+            this.value = '';
+            priceSel.value = '';
+            priceSel.style.pointerEvents = '';
+            priceSel.style.background = '';
+            priceSel.style.cursor = '';
+            calcGrand(prefix);
+            return;
+          }
+        }
         priceSel.value = this.value;
         _lockPriceSel(priceSel);
       } else {
@@ -2204,6 +2268,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   // Apply classes lock if after 9AM
   applyClassesLock();
   setInterval(applyClassesLock, 60000); // re-check every minute
+  applyTuckshopTimeLock();
+  setInterval(applyTuckshopTimeLock, 60000);
 
   // Show general password modal immediately — nothing visible until unlocked
   // ── CHECK ORDER STATUS ──
