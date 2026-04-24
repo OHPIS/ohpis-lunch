@@ -892,13 +892,27 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     priceInput.type = 'text';
     priceInput.placeholder = 'Price (e.g. 250)';
     priceInput.value = selectedPrice || '';
+    if (selectedPrice) {
+      priceInput.readOnly = true;
+      priceInput.style.background = 'var(--bg)';
+      priceInput.style.cursor = 'default';
+    }
     sel.onchange = function() {
       var name = this.value;
-      if (!name) return;
+      if (!name) { priceInput.value = ''; priceInput.readOnly = false; priceInput.style.background = ''; return; }
       var match = null;
       (LUNCH_TYPES_CLASS || []).forEach(function(t) { if (t.name === name) match = t.price; });
       if (!match) (LUNCH_TYPES_OFFICE || []).forEach(function(t) { if (t.name === name) match = t.price; });
-      if (match) priceInput.value = match;
+      if (match) {
+        priceInput.value = match;
+        priceInput.readOnly = true;
+        priceInput.style.background = 'var(--bg)';
+        priceInput.style.cursor = 'default';
+      } else {
+        priceInput.value = '';
+        priceInput.readOnly = false;
+        priceInput.style.background = '';
+      }
     };
     var removeBtn = document.createElement('button');
     removeBtn.type = 'button';
@@ -1221,7 +1235,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   var rowCounter = 0;
 
   function lunchOptions(prefix) {
-    var types = prefix === 'c' ? LUNCH_TYPES_CLASS : LUNCH_TYPES_OFFICE;
+    var types = LUNCH_TYPES_CLASS; // both classes and office use same admin list
     return '<option value="">— Select —</option>' + types.map(function(t) {
       return '<option value="' + (t.price || '') + '">' + t.name + '</option>';
     }).join('');
