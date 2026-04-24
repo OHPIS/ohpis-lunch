@@ -877,9 +877,14 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var div = document.createElement('div');
     div.className = 'menu-row';
     div.id = id;
+    var allMenuTypes = (LUNCH_TYPES_CLASS || []).concat(
+      (LUNCH_TYPES_OFFICE || []).filter(function(o){
+        return !(LUNCH_TYPES_CLASS || []).some(function(c){ return c.name === o.name; });
+      })
+    );
     var opts = '<option value="">— Select item —</option>' +
-      MENU_LUNCH_TYPES.map(function(t) {
-        return '<option' + (t === selectedName ? ' selected' : '') + '>' + t + '</option>';
+      allMenuTypes.map(function(t) {
+        return '<option' + (t.name === selectedName ? ' selected' : '') + '>' + t.name + '</option>';
       }).join('');
     var sel = document.createElement('select');
     sel.innerHTML = opts;
@@ -1250,7 +1255,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     lunchSel.onchange = function() {
       if (this.value) {
         if ((prefix === 'c' || prefix === 'o') && todayMenuItems.length > 0) {
-          var sel = this.value.toLowerCase().trim();
+          var sel = this.options[this.selectedIndex].text.toLowerCase().trim();
           var ok  = todayMenuItems.some(function(m){ return m === sel || sel.indexOf(m) !== -1 || m.indexOf(sel) !== -1; });
           if (!ok) {
             menuWarn.style.display = 'block';
