@@ -594,7 +594,7 @@
     <div class="card">
       <div class="section-label">Class Tuckshop Order</div>
       <div id="tuckshop-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
-        🔒 Products not updated for today. Orders are not available.
+        <span id="tuckshop-lock-text">🔒 Tuckshop orders accepted 7:30 AM – 9:30 AM only.</span>
       </div>
       <form id="tuckshopForm" novalidate>
         <div class="form-grid">
@@ -1003,8 +1003,10 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var submitBtn = document.querySelector('#tuckshopForm button[type="submit"]');
     var addRowBtn = document.querySelector('#tab-tuckshop .btn-add-row');
     var editBtn   = document.querySelector('#tab-tuckshop .edit-order-btn');
+    var lockText = document.getElementById('tuckshop-lock-text');
     if (!open) {
       if (lockMsg)   lockMsg.style.display = 'block';
+      if (lockText)  lockText.textContent = '🔒 Tuckshop orders accepted 7:30 AM – 9:30 AM only.';
       if (submitBtn) { submitBtn.disabled = true;  submitBtn.style.background = '#8f9dc7'; }
       if (addRowBtn) addRowBtn.disabled = true;
       if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
@@ -1804,15 +1806,14 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         (isToday ? '#aeddc0;background:#e8f5ee;color:#145229' : '#f5bfbf;background:#fdf0f0;color:#8b1a1a') + ';">' +
         formatDate(tuckshopDate) + (isToday ? '' : ' ⚠️ Not updated today') + '</span>';
 
-      // Lock or unlock order form
+      // Lock or unlock order form — also respect time window
       if (!isToday) {
         if (lockMsg)   lockMsg.style.display = 'block';
         if (submitBtn) { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
         if (addRowBtn) addRowBtn.disabled = true;
       } else {
-        if (lockMsg)   lockMsg.style.display = 'none';
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.style.background = ''; }
-        if (addRowBtn) addRowBtn.disabled = false;
+        // Let applyTuckshopTimeLock handle enable/disable — just clear stale lock
+        applyTuckshopTimeLock();
       }
     } else {
       dateDisplay.innerHTML = '';
