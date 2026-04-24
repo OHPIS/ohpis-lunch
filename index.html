@@ -1283,7 +1283,14 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           }
         }
         menuWarn.style.display = 'none';
-        priceSel.value = this.value;
+        var price = this.value;
+        // If price not in dropdown options, add it dynamically
+        if (price && !Array.from(priceSel.options).some(function(o){ return o.value == price; })) {
+          var opt = document.createElement('option');
+          opt.value = price; opt.text = price;
+          priceSel.appendChild(opt);
+        }
+        priceSel.value = price;
         _lockPriceSel(priceSel);
       } else {
         menuWarn.style.display = 'none';
@@ -1616,7 +1623,13 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     }
     lunchSel.onchange = function() {
       if (this.value) {
-        priceSel.value = this.value;
+        var price2 = this.value;
+        if (price2 && !Array.from(priceSel.options).some(function(o){ return o.value == price2; })) {
+          var opt2 = document.createElement('option');
+          opt2.value = price2; opt2.text = price2;
+          priceSel.appendChild(opt2);
+        }
+        priceSel.value = price2;
         _lockPriceSel(priceSel);
       } else {
         priceSel.value = '';
