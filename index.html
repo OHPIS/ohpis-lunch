@@ -694,7 +694,8 @@
 
   <!-- ══════════ ADMIN TAB ══════════ -->
   <div class="tab-panel" id="tab-admin">
-    <div class="card">
+    <div class="card" style="position:relative;">
+      <button type="button" onclick="switchTab('classes')" style="position:absolute;top:0.8rem;right:0.8rem;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
       <div class="section-label">🛠️ Lunch Type Manager</div>
       <p style="font-size:0.85rem;color:var(--muted);margin:0.5rem 0 1rem;">Add, edit or remove lunch types and prices for Classes and Office forms.</p>
       <div style="display:grid;grid-template-columns:22px 1fr 90px 90px 36px;gap:6px;margin-bottom:4px;">
@@ -1788,7 +1789,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         btn.style.display = 'none';
         editStartRow[prefix]  = null;
         editTimestamp[prefix] = null;
-      } else { throw new Error(result.message); }
+      } else { throw new Error(result.message || JSON.stringify(result)); }
     } catch(err) {
       msgEl.className = 'edit-msg notfound';
       msgEl.textContent = '❌ Error updating. Please try again.';
@@ -2216,7 +2217,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           }).catch(function(e){ console.error(e); });
         }
         showTuckshopSuccess(statusEl, grandTotal);
-      } else { throw new Error(result.message); }
+      } else { throw new Error(result.message || JSON.stringify(result)); }
     } catch(err) {
       statusEl.className = 'status-msg error';
       statusEl.innerHTML = '❌ Error submitting. Please try again.';
@@ -2737,10 +2738,10 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         statusEl.style.cssText = 'display:block;background:#e8f5ee;border:1px solid #a8d5b8;color:#1a5c2e;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
         statusEl.textContent = '✅ Saved! Forms will use new prices on next load.';
         loadLunchTypes(); // refresh in-memory types
-      } else { throw new Error(result.message); }
+      } else { throw new Error(result.message || JSON.stringify(result)); }
     } catch(e) {
       statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
-      statusEl.textContent = '❌ Error saving. Please try again.';
+      statusEl.textContent = '❌ Error: ' + (e.message || 'Please try again.');
     }
   }
 
