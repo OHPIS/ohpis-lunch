@@ -902,8 +902,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       var name = this.value;
       if (!name) { priceInput.value = ''; priceInput.readOnly = false; priceInput.style.background = ''; return; }
       var match = null;
-      (LUNCH_TYPES_CLASS || []).forEach(function(t) { if (t.name === name) match = t.price; });
-      if (!match) (LUNCH_TYPES_OFFICE || []).forEach(function(t) { if (t.name === name) match = t.price; });
+      (LUNCH_TYPES_CLASS || []).forEach(function(t) { if (t.name.toLowerCase().trim() === name.toLowerCase().trim()) match = t.price; });
+      if (!match) (LUNCH_TYPES_OFFICE || []).forEach(function(t) { if (t.name.toLowerCase().trim() === name.toLowerCase().trim()) match = t.price; });
       if (match) {
         priceInput.value = match;
         priceInput.readOnly = true;
