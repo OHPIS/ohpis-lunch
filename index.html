@@ -1035,7 +1035,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var submitBtn = document.querySelector('#tuckshopForm button[type="submit"]');
     var addRowBtn = document.querySelector('#tab-tuckshop .btn-add-row');
     var editBtn   = document.querySelector('#tab-tuckshop .edit-order-btn');
-    var lockText = document.getElementById('tuckshop-lock-text');
+    var lockText  = document.getElementById('tuckshop-lock-text');
+    var tDateEl   = document.getElementById('t-date');
+    if (tDateEl) tDateEl.value = getJamaicaToday();
     if (!open) {
       var inWindow = (function(){ var t = getJamaicaHourMinute(); var m = t.h*60+t.m; return m >= (7*60+30) && m < (9*60+30); })();
       if (lockMsg)   lockMsg.style.display = 'block';
@@ -1230,6 +1232,10 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       loadOfficeNames();
       loadSalesSummary();
       loadSalesCharts();
+      document.getElementById('o-date').value = today;
+    }
+    if (tab === 'classes') {
+      document.getElementById('c-date').value = today;
     }
     if (tab === 'tuckshop') {
       tuckshopInitialized = true;
@@ -1470,7 +1476,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     panel.classList.toggle('open');
     // Set date to today by default
     var dateInput = document.getElementById(prefix + '-edit-date');
-    if (!dateInput.value) dateInput.value = today;
+    dateInput.value = today;
   }
 
   function findOrder(prefix) {
@@ -2325,7 +2331,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var panel = document.getElementById('c-check-status-panel');
     panel.classList.toggle('open');
     var d = document.getElementById('chs-date');
-    if (!d.value) d.value = today;
+    d.value = today;
   }
 
   function switchCheckTab(mode) {
@@ -2381,7 +2387,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var panel = document.getElementById('t-check-status-panel');
     panel.classList.toggle('open');
     var d = document.getElementById('ths-date');
-    if (!d.value) d.value = today;
+    d.value = today;
   }
 
   function checkTuckshopStatus() {
