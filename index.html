@@ -885,7 +885,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     );
     var opts = '<option value="">— Select item —</option>' +
       allMenuTypes.map(function(t) {
-        return '<option' + (t.name === selectedName ? ' selected' : '') + '>' + t.name + '</option>';
+        var escaped = t.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+        return '<option value="' + escaped + '"' + (t.name === selectedName ? ' selected' : '') + '>' + t.name + '</option>';
       }).join('');
     var sel = document.createElement('select');
     sel.innerHTML = opts;
