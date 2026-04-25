@@ -1867,6 +1867,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var lockMsg     = document.getElementById('tuckshop-lock-msg');
     var submitBtn   = document.querySelector('#tuckshopForm button[type="submit"]');
     var addRowBtn   = document.querySelector('#tab-tuckshop .btn-add-row');
+    var editBtn     = document.querySelector('#tab-tuckshop .edit-order-btn');
 
     // Show date and stale warning
     if (tuckshopDate) {
@@ -1880,6 +1881,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         if (lockMsg)   lockMsg.style.display = 'block';
         if (submitBtn) { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
         if (addRowBtn) addRowBtn.disabled = true;
+        if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
       } else {
         // Let applyTuckshopTimeLock handle enable/disable — just clear stale lock
         applyTuckshopTimeLock();
@@ -1889,6 +1891,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       if (lockMsg)   lockMsg.style.display = 'block';
       if (submitBtn) { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
       if (addRowBtn) addRowBtn.disabled = true;
+      if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
     }
 
     if (!tuckshopProducts.length) {
