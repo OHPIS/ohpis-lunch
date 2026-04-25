@@ -901,10 +901,16 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     sel.onchange = function() {
       var name = this.value;
       if (!name) { priceInput.value = ''; priceInput.readOnly = false; priceInput.style.background = ''; return; }
+      // Rebuild fresh list at onchange time to get latest prices
+      var freshTypes = (LUNCH_TYPES_CLASS || []).concat(
+        (LUNCH_TYPES_OFFICE || []).filter(function(o) {
+          return !(LUNCH_TYPES_CLASS || []).some(function(c) { return c.name === o.name; });
+        })
+      );
       var match = null;
-      (LUNCH_TYPES_CLASS || []).forEach(function(t) { if (t.name.toLowerCase().trim() === name.toLowerCase().trim()) match = t.price; });
-      if (!match) (LUNCH_TYPES_OFFICE || []).forEach(function(t) { if (t.name.toLowerCase().trim() === name.toLowerCase().trim()) match = t.price; });
-      if (match) {
+      var nameLower = name.toLowerCase().trim();
+      freshTypes.forEach(function(t) { if (t.name.toLowerCase().trim() === nameLower) match = t.price; });
+      if (match != null && match !== '') {
         priceInput.value = match;
         priceInput.readOnly = true;
         priceInput.style.background = 'var(--bg)';
@@ -2453,6 +2459,19 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           if (items) items.innerHTML = '';
           addRow(p);
         });
+        // Also refresh menu editor dropdowns if open
+        var menuRows = document.getElementById('menu-rows');
+        if (menuRows && document.getElementById('menu-editor').classList.contains('open')) {
+          var existing = [];
+          menuRows.querySelectorAll('.menu-row').forEach(function(row) {
+            var s = row.querySelector('select');
+            var p = row.querySelector('input[type="text"]');
+            if (s) existing.push({ name: s.value, price: p ? p.value : '' });
+          });
+          menuRows.innerHTML = '';
+          menuRowCounter = 0;
+          existing.forEach(function(item) { addMenuRow(item.name, item.price); });
+        }
       })
       .catch(function(e) { console.error('loadLunchTypes error:', e); });
   }
