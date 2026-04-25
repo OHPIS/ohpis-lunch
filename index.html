@@ -901,16 +901,16 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     sel.onchange = function() {
       var name = this.value;
       if (!name) { priceInput.value = ''; priceInput.readOnly = false; priceInput.style.background = ''; return; }
-      // Rebuild fresh list at onchange time to get latest prices
+      var norm = function(s){ return s.toLowerCase().trim().replace(/\s+/g,' '); };
+      var match = null;
       var freshTypes = (LUNCH_TYPES_CLASS || []).concat(
-        (LUNCH_TYPES_OFFICE || []).filter(function(o) {
-          return !(LUNCH_TYPES_CLASS || []).some(function(c) { return c.name === o.name; });
+        (LUNCH_TYPES_OFFICE || []).filter(function(o){
+          return !(LUNCH_TYPES_CLASS||[]).some(function(c){ return norm(c.name)===norm(o.name); });
         })
       );
-      var match = null;
-      var nameLower = name.toLowerCase().trim();
-      freshTypes.forEach(function(t) { if (t.name.toLowerCase().trim() === nameLower) match = t.price; });
-      if (match != null && match !== '') {
+      freshTypes.forEach(function(t){ if (norm(t.name) === norm(name)) match = t.price; });
+      console.log('Menu lookup:', name, '| match:', match, '| freshTypes:', JSON.stringify(freshTypes.map(function(t){return t.name;})));
+      if (match) {
         priceInput.value = match;
         priceInput.readOnly = true;
         priceInput.style.background = 'var(--bg)';
@@ -2459,19 +2459,6 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           if (items) items.innerHTML = '';
           addRow(p);
         });
-        // Also refresh menu editor dropdowns if open
-        var menuRows = document.getElementById('menu-rows');
-        if (menuRows && document.getElementById('menu-editor').classList.contains('open')) {
-          var existing = [];
-          menuRows.querySelectorAll('.menu-row').forEach(function(row) {
-            var s = row.querySelector('select');
-            var p = row.querySelector('input[type="text"]');
-            if (s) existing.push({ name: s.value, price: p ? p.value : '' });
-          });
-          menuRows.innerHTML = '';
-          menuRowCounter = 0;
-          existing.forEach(function(item) { addMenuRow(item.name, item.price); });
-        }
       })
       .catch(function(e) { console.error('loadLunchTypes error:', e); });
   }
