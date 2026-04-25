@@ -1023,6 +1023,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 
   function isTuckshopWindowOpen() {
     if (devOverrideTuckshop) return true;
+    if (!tuckshopDate || tuckshopDate !== getJamaicaToday()) return false;
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
     return mins >= (7 * 60 + 30) && mins < (9 * 60 + 30);
@@ -1867,7 +1868,6 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var lockMsg     = document.getElementById('tuckshop-lock-msg');
     var submitBtn   = document.querySelector('#tuckshopForm button[type="submit"]');
     var addRowBtn   = document.querySelector('#tab-tuckshop .btn-add-row');
-    var editBtn     = document.querySelector('#tab-tuckshop .edit-order-btn');
 
     // Show date and stale warning
     if (tuckshopDate) {
@@ -1876,22 +1876,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         (isToday ? '#aeddc0;background:#e8f5ee;color:#145229' : '#f5bfbf;background:#fdf0f0;color:#8b1a1a') + ';">' +
         formatDate(tuckshopDate) + (isToday ? '' : ' ⚠️ Not updated today') + '</span>';
 
-      // Lock or unlock order form — also respect time window
-      if (!isToday) {
-        if (lockMsg)   lockMsg.style.display = 'block';
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
-        if (addRowBtn) addRowBtn.disabled = true;
-        if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
-      } else {
-        // Let applyTuckshopTimeLock handle enable/disable — just clear stale lock
-        applyTuckshopTimeLock();
-      }
+      // applyTuckshopTimeLock handles all button state (checks date + time window)
+      applyTuckshopTimeLock();
     } else {
       dateDisplay.innerHTML = '';
-      if (lockMsg)   lockMsg.style.display = 'block';
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
-      if (addRowBtn) addRowBtn.disabled = true;
-      if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
+      applyTuckshopTimeLock();
     }
 
     if (!tuckshopProducts.length) {
