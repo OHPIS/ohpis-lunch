@@ -1037,8 +1037,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var editBtn   = document.querySelector('#tab-tuckshop .edit-order-btn');
     var lockText = document.getElementById('tuckshop-lock-text');
     if (!open) {
+      var inWindow = (function(){ var t = getJamaicaHourMinute(); var m = t.h*60+t.m; return m >= (7*60+30) && m < (9*60+30); })();
       if (lockMsg)   lockMsg.style.display = 'block';
-      if (lockText)  lockText.textContent = '🔒 Tuckshop orders accepted 7:30 AM – 9:30 AM only.';
+      if (lockText)  lockText.textContent = (inWindow && (!tuckshopDate || tuckshopDate !== getJamaicaToday()))
+        ? '⚠️ Tuckshop menu is not updated for today. Please update the menu to enable orders.'
+        : '🔒 Tuckshop orders accepted 7:30 AM – 9:30 AM only.';
       if (submitBtn) { submitBtn.disabled = true;  submitBtn.style.background = '#8f9dc7'; }
       if (addRowBtn) addRowBtn.disabled = true;
       if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
