@@ -266,7 +266,8 @@
       <div id="menu-note-display"></div>
 
       <!-- EDITOR (hidden until password) -->
-      <div class="menu-editor" id="menu-editor">
+      <div class="menu-editor" id="menu-editor" style="position:relative;">
+        <button type="button" onclick="document.getElementById('menu-editor').classList.remove('open')" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
         <div class="menu-editor-date">
           <label>Menu Date:</label>
           <input type="date" id="menu-date-input"/>
@@ -1625,7 +1626,13 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var priceSel = document.createElement('select');
     priceSel.innerHTML = priceOpts;
     if (selectedPrice) {
-      priceSel.value = String(selectedPrice);
+      var spStr = String(selectedPrice);
+      if (!Array.from(priceSel.options).some(function(o){ return o.value == spStr || o.text == spStr; })) {
+        var spOpt = document.createElement('option');
+        spOpt.value = spStr; spOpt.text = spStr;
+        priceSel.appendChild(spOpt);
+      }
+      priceSel.value = spStr;
       _lockPriceSel(priceSel);
     }
     lunchSel.onchange = function() {
