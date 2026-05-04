@@ -2230,20 +2230,17 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         statusEl.innerHTML = '⚠️ ' + result.message;
         statusEl.style.display = 'block';
       } else if (result.result === 'success') {
-        // Deduct patties from stock only on confirmed success
-        rows.forEach(function(r) {
-          if (r.product === 'Beef Patty' || r.product === 'Cheese Patty' || r.product === 'Chicken Patty') {
-            tuckshopStock[r.product] = Math.max(0, (tuckshopStock[r.product] || 0) - r.amount);
-          }
-        });
-        renderTuckshopProducts();
-        if (TUCKSHOP_SCRIPT_URL !== "YOUR_TUCKSHOP_SCRIPT_URL_HERE") {
-          fetch(TUCKSHOP_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'updateStock', stock: tuckshopStock }),
-            headers: { 'Content-Type': 'text/plain' }
-          }).catch(function(e){ console.error(e); });
+        // Use stock returned by server (authoritative), fallback to local deduction
+        if (result.stock) {
+          tuckshopStock = result.stock;
+        } else {
+          rows.forEach(function(r) {
+            if (r.product === 'Beef Patty' || r.product === 'Cheese Patty' || r.product === 'Chicken Patty') {
+              tuckshopStock[r.product] = Math.max(0, (tuckshopStock[r.product] || 0) - r.amount);
+            }
+          });
         }
+        renderTuckshopProducts();
         showTuckshopSuccess(statusEl, grandTotal);
       } else { throw new Error(result.message || JSON.stringify(result)); }
     } catch(err) {
