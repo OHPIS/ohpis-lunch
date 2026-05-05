@@ -557,7 +557,7 @@
       <div id="tuckshop-date-display" style="margin-bottom:0.8rem;"></div>
       <div id="tuckshop-products-display"><p class="menu-empty">No products set yet.</p></div>
       <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
-        <button type="button" class="menu-edit-btn" style="flex:1;" onclick="loadTuckshopProducts()">🔄 Refresh Stock</button>
+        <button type="button" class="menu-edit-btn" style="flex:1;" id="tuckshop-refresh-btn" onclick="var b=this;b.textContent='⏳ Refreshing...';b.disabled=true;loadTuckshopProducts();setTimeout(function(){b.textContent='✅ Updated';setTimeout(function(){b.textContent='🔄 Refresh Stock';b.disabled=false;},1200);},1000);">🔄 Refresh Stock</button>
         <button type="button" class="menu-edit-btn" style="flex:1;" onclick="openTuckshopEditor()">✏️ Edit Products &amp; Inventory</button>
       </div>
 
@@ -1874,8 +1874,27 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       .catch(function(err){ console.error('Tuckshop load error:', err); });
   }
 
-  // Auto-refresh stock every 60 seconds
-  setInterval(function() { loadTuckshopProducts(); }, 60000);
+  // Auto-refresh: solo actualiza el countdown de patties sin tocar el form
+  function refreshStockOnly() {
+    if (TUCKSHOP_SCRIPT_URL === "YOUR_TUCKSHOP_SCRIPT_URL_HERE") return;
+    fetch(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if (res.result === 'success') {
+          tuckshopStock = res.stock || {};
+          // Solo actualizar los chips de stock en el panel, sin tocar el form
+          var chips = document.querySelectorAll('.menu-item-chip .menu-item-name');
+          chips.forEach(function(chip) {
+            var name = chip.textContent.replace(/\s*\(\d+ left\)/, '').trim();
+            if ((name === 'Beef Patty' || name === 'Cheese Patty' || name === 'Chicken Patty') && tuckshopStock[name] !== undefined) {
+              chip.innerHTML = name + ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock[name] + ' left)</span>';
+            }
+          });
+        }
+      })
+      .catch(function(err){ console.error('Stock refresh error:', err); });
+  }
+  setInterval(refreshStockOnly, 60000);
 
   function renderTuckshopProducts() {
     var display     = document.getElementById('tuckshop-products-display');
