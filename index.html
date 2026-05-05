@@ -1,2807 +1,663 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Old Harbour Primary &amp; Infant School — Lunch Order</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --blue:   #1A2E6B;
-      --blue-d: #111f4d;
-      --blue-l: #E8EBF5;
-      --gold:   #C8962A;
-      --gold-l: #FDF6E3;
-      --green:  #1B6B3A;
-      --green-l:#E8F5EE;
-      --red:    #B22234;
-      --text:   #1A1A1A;
-      --muted:  #5A5A5A;
-      --border: #D0D5DD;
-      --bg:     #F7F8FA;
-      --white:  #FFFFFF;
-      --radius: 10px;
+// ============================================================
+//  OLD HARBOUR PRIMARY & INFANT SCHOOL — Tuckshop Backend
+//  • Sin flash (escritura quirúrgica)
+//  • TOTALS por GRADO (Grade 1, Grade 2… igual que Classes)
+//  • Menú/stock de productos persistido en tab TuckshopMenu
+//  • Dropdown de status solo en fila cabecera de cada orden
+// ============================================================
+
+var TUCKSHOP_WIDTHS = [160, 110, 130, 200, 80, 100, 110, 130, 60, 100, 100];
+var GRADE_ORDER = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Infant','Special Education'];
+
+function getGradeGroup(className) {
+  if (!className) return '';
+  var s = String(className).trim();
+  if (s.indexOf('Special Education') !== -1) return 'Special Education';
+  if (s.indexOf('Infant')            !== -1) return 'Infant';
+  var m = s.match(/^Grade (\d)/);
+  return m ? 'Grade ' + m[1] : '';
+}
+
+function doPost(e) {
+  try {
+    var ss   = SpreadsheetApp.getActiveSpreadsheet();
+    var raw  = e.postData ? e.postData.contents : e.parameter.data;
+    var data = JSON.parse(raw);
+
+    if (data.action === 'saveProducts')  return saveProducts(ss, data);
+    if (data.action === 'updateStock')   return updateStock(ss, data);
+    if (data.action === 'updateOrder') {
+      var sheet = ss.getSheetByName('Tuckshop');
+      if (!sheet) return _json({result:'error', message:'Sheet not found'});
+      data.isUpdate    = true;
+      data.forceStatus = 'Updated';
+      appendTuckshopOrder(sheet, data);
+      return _json({result:'success'});
     }
-    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 0 0 3rem; }
-
-    .site-header { background: var(--blue); display: flex; flex-direction: column; align-items: center; }
-    .header-stripe { width: 100%; height: 7px; background: var(--gold); }
-    .header-body { padding: 1.2rem 1rem 1rem; text-align: center; }
-    .crest { width: 70px; height: 70px; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; overflow: hidden; }
-    .crest img { width: 100%; height: 100%; object-fit: contain; }
-    .school-name { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--white); letter-spacing: 0.01em; }
-    .school-sub { font-size: 0.82rem; color: rgba(255,255,255,0.75); margin-top: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
-    .header-tag { margin-top: 1rem; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.28); color: var(--white); font-size: 0.78rem; padding: 5px 16px; border-radius: 20px; letter-spacing: 0.06em; text-transform: uppercase; }
-
-    .container { max-width: 720px; margin: 2.5rem auto 0; padding: 0 1rem; }
-
-    /* TABS */
-    .tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; }
-    .tab-btn { flex: 1; padding: 0.75rem 1rem; border: 2px solid var(--border); border-radius: var(--radius); background: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.92rem; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.18s; text-align: center; }
-
-    .tab-btn.active { background: var(--blue); border-color: var(--blue); color: var(--white); }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-
-    /* CARD */
-    .card { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 2rem 2rem 2.2rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
-    .section-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--blue); margin-bottom: 1.2rem; padding-bottom: 0.5rem; border-bottom: 1.5px solid var(--blue-l); }
-
-    /* FORM FIELDS */
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem 1.2rem; }
-    .form-group { display: flex; flex-direction: column; gap: 5px; }
-    .form-group.full { grid-column: 1 / -1; }
-    label { font-size: 0.82rem; font-weight: 500; color: var(--muted); }
-    input[type="text"], input[type="date"], input[type="number"], select {
-      font-family: 'DM Sans', sans-serif; font-size: 0.93rem; color: var(--text);
-      background: var(--white); border: 1.5px solid var(--border); border-radius: var(--radius);
-      padding: 0.6rem 0.75rem; width: 100%; transition: border-color 0.18s, box-shadow 0.18s;
-      outline: none; -webkit-appearance: none;
+    if (data.action === 'tuckshopOrder') {
+      var sheet = ss.getSheetByName('Tuckshop');
+      if (!sheet) sheet = ss.insertSheet('Tuckshop');
+      _ensureHeaders(sheet);
+      var tResult = appendTuckshopOrder(sheet, data);
+      if (tResult) return tResult;
+      return _json({result:'success'});
     }
-    input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,46,107,0.12); }
-    select {
-      padding-right: 2rem; cursor: pointer;
-    }
-    .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+    return _json({result:'error', message:'Unknown action'});
+  } catch(err) {
+    return _json({result:'error', message:err.toString()});
+  }
+}
 
-    /* ITEMS TABLE */
-    .items-section { margin-top: 1.5rem; }
-    .items-header { display: grid; grid-template-columns: 1fr 90px 100px 90px 40px; gap: 8px; padding: 0 0 6px; border-bottom: 1.5px solid var(--blue-l); margin-bottom: 8px; }
-    .items-header span { font-size: 0.72rem; font-weight: 600; color: var(--blue); text-transform: uppercase; letter-spacing: 0.07em; }
-    .item-row { display: grid; grid-template-columns: 1fr 90px 100px 90px 40px; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .item-row select, .item-row input { font-size: 0.88rem; padding: 0.45rem 0.6rem; }
-    .item-row select { padding-right: 1.6rem; }
-    .item-total { font-size: 0.88rem; font-weight: 600; color: var(--blue); text-align: right; padding-right: 4px; }
-    .btn-remove { background: none; border: 1.5px solid #f5bfbf; border-radius: 6px; color: var(--red); font-size: 1rem; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; flex-shrink: 0; }
+function doGet(e) {
+  try {
+    var action = e.parameter.action || '';
+    var ss     = SpreadsheetApp.getActiveSpreadsheet();
 
-
-    /* ADD ROW BUTTON */
-    .btn-add-row { display: flex; align-items: center; gap: 6px; background: none; border: 1.5px dashed var(--border); border-radius: var(--radius); color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500; padding: 0.55rem 1rem; cursor: pointer; margin-top: 8px; width: 100%; justify-content: center; transition: all 0.18s; }
-
-
-    /* GRAND TOTAL */
-    .grand-total-box { background: var(--blue); border-radius: var(--radius); padding: 0.85rem 1.2rem; display: flex; align-items: center; justify-content: space-between; margin-top: 1.2rem; }
-    .grand-total-label { font-size: 0.9rem; font-weight: 600; color: rgba(255,255,255,0.85); }
-    .grand-total-value { font-size: 1.3rem; font-weight: 700; color: var(--white); }
-
-    /* SUBMIT */
-    .submit-row { margin-top: 1.8rem; display: flex; flex-direction: column; align-items: center; gap: 0.7rem; }
-    button[type="submit"] { font-family: 'DM Sans', sans-serif; font-size: 0.97rem; font-weight: 600; background: var(--green); color: var(--white); border: none; border-radius: var(--radius); padding: 0.78rem 2.4rem; cursor: pointer; width: 100%; max-width: 340px; letter-spacing: 0.02em; transition: background 0.18s, transform 0.12s; }
-    button[type="submit"]:hover { background: #145229; }
-
-    button[type="submit"]:disabled { background: #9bbfaa; cursor: not-allowed; }
-    .submit-note { font-size: 0.78rem; color: var(--muted); text-align: center; }
-
-    .status-msg { display: none; border-radius: var(--radius); padding: 1rem 1.2rem; font-size: 0.9rem; margin-top: 1.2rem; text-align: center; line-height: 1.5; }
-    .status-msg.success { display: block; background: var(--green-l); border: 1px solid #aeddc0; color: #145229; }
-    .status-msg.error   { display: block; background: #fdf0f0; border: 1px solid #f5bfbf; color: #8b1a1a; }
-
-    .site-footer { text-align: center; margin-top: 2.5rem; font-size: 0.76rem; color: #aaa; }
-
-    @media (max-width: 540px) {
-      /* Container */
-      .container { padding: 0 0.6rem; margin-top: 1.2rem; }
-
-      /* Tabs — smaller text, tighter */
-      .tabs { gap: 4px; margin-bottom: 1rem; }
-      .tab-btn { font-size: 0.75rem; padding: 0.6rem 0.3rem; }
-
-      /* Cards */
-      .card { padding: 1.1rem 0.85rem 1.3rem; border-radius: 10px; }
-      .section-label { font-size: 0.65rem; margin-bottom: 0.9rem; }
-
-      /* Form grid — single column */
-      .form-grid { grid-template-columns: 1fr; gap: 0.8rem; }
-      .form-group.full { grid-column: 1; }
-
-      /* Item rows — stack lunch type full width, compress others */
-      .items-header { grid-template-columns: 1fr 60px 70px 60px 30px; gap: 4px; font-size: 0.65rem; }
-      .item-row { grid-template-columns: 1fr 60px 70px 60px 30px; gap: 4px; }
-      .item-row select, .item-row input { font-size: 0.8rem; padding: 0.38rem 0.35rem; }
-      .item-row select { padding-right: 1.2rem; }
-      .item-total { font-size: 0.8rem; }
-      .btn-remove { width: 28px; height: 28px; font-size: 0.85rem; }
-
-      /* Grand total */
-      .grand-total-box { padding: 0.7rem 0.9rem; }
-      .grand-total-label { font-size: 0.82rem; }
-      .grand-total-value { font-size: 1.1rem; }
-
-      /* Submit button */
-      button[type="submit"] { font-size: 0.9rem; padding: 0.7rem 1.2rem; max-width: 100%; }
-
-      /* Edit search panel — stack vertically */
-      .edit-search { grid-template-columns: 1fr; }
-      .find-btn { width: 100%; }
-
-      /* Menu items list — single column */
-      .menu-items-list { grid-template-columns: 1fr; }
-      .menu-card { padding: 1.1rem 0.85rem; }
-
-      /* Today's menu header */
-      .menu-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-
-      /* Admin panel rows */
-      #admin-items > div { grid-template-columns: 22px 1fr 72px 72px 30px !important; gap: 4px !important; }
-
-      /* Sales summary boxes */
-      #sales-summary-display { grid-template-columns: 1fr !important; }
-
-      /* Charts — full width scroll */
-      #chart-lunch-daily-wrap,
-      #chart-tuckshop-daily-wrap { margin: 0 -0.85rem; padding: 0 0.85rem; }
-
-      /* Edit/find buttons */
-      .edit-order-btn { font-size: 0.82rem; padding: 0.48rem 0.8rem; }
-      .update-btn { font-size: 0.85rem; padding: 0.6rem 1rem; }
-
-      /* Header */
-      .crest { width: 55px; height: 55px; }
-      .header-body { padding: 0.9rem 0.8rem 0.8rem; }
+    if (action === 'getProducts') {
+      var menuSheet = ss.getSheetByName('TuckshopMenu');
+      if (!menuSheet || menuSheet.getLastRow() <= 1)
+        return _json({result:'success', products:[], stock:{}, date:''});
+      var d = menuSheet.getDataRange().getValues();
+      var products = [], initialStock = {}, date = '';
+      var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+      for (var i = 1; i < d.length; i++) {
+        if (d[i][0]) date = d[i][0];
+        if (d[i][1]) {
+          var name  = String(d[i][1]);
+          var price = d[i][2] || '';
+          products.push({name: name, price: price});
+          if (PATTY_TYPES.indexOf(name) !== -1 && d[i][3] !== '' && d[i][3] !== null && d[i][3] !== undefined) {
+            initialStock[name] = parseInt(d[i][3]) || 0;
+          }
+        }
+      }
+      // Calculate available = initial - sum of all TOTALS rows in Tuckshop sheet
+      var stock = {};
+      // Copy initialStock into stock
+      for (var k in initialStock) stock[k] = initialStock[k];
+      var tuckshopSheet = ss.getSheetByName('Tuckshop');
+      if (tuckshopSheet && tuckshopSheet.getLastRow() > 1) {
+        var vals = tuckshopSheet.getRange(2, 1, tuckshopSheet.getLastRow() - 1, 10).getValues();
+        for (var i = 0; i < vals.length; i++) {
+          if (String(vals[i][0]).trim() !== 'TOTALS') continue;
+          if (String(vals[i][9]).trim() === 'Cancelled') continue;
+          var line = String(vals[i][3]).trim();
+          if (!line) continue;
+          line.split('|').forEach(function(part) {
+            part = part.trim();
+            var m = part.match(/^(.+):\s*(\d+)$/);
+            if (!m) return;
+            var pName = m[1].trim();
+            var qty   = parseInt(m[2]) || 0;
+            if (PATTY_TYPES.indexOf(pName) !== -1 && stock[pName] !== undefined) {
+              stock[pName] = Math.max(0, stock[pName] - qty);
+            }
+          });
+        }
+      }
+      // Write Col E (available) back to TuckshopMenu
+      for (var i = 1; i < d.length; i++) {
+        var pName = String(d[i][1]).trim();
+        if (PATTY_TYPES.indexOf(pName) !== -1 && stock[pName] !== undefined) {
+          menuSheet.getRange(i + 1, 5).setValue(stock[pName]);
+        }
+      }
+      return _json({result:'success', products:products, stock:stock, date:date});
     }
 
-    /* PASSWORD MODAL */
-    .pw-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center; }
-    .pw-overlay.show { display:flex; }
-    .pw-box { background:var(--white); border-radius:14px; padding:2rem; width:90%; max-width:340px; box-shadow:0 8px 32px rgba(0,0,0,0.18); text-align:center; }
-    .pw-box h3 { font-size:1.05rem; font-weight:600; color:var(--blue); margin-bottom:0.4rem; }
-    .pw-box p { font-size:0.82rem; color:var(--muted); margin-bottom:1.2rem; }
-    .pw-box input { font-family:'DM Sans',sans-serif; font-size:0.95rem; border:1.5px solid var(--border); border-radius:var(--radius); padding:0.6rem 0.75rem; width:100%; outline:none; margin-bottom:0.5rem; text-align:center; letter-spacing:0.1em; }
-    .pw-box input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(26,46,107,0.12); }
-    .pw-error { font-size:0.8rem; color:var(--red); margin-bottom:0.8rem; min-height:1.1rem; }
-    .pw-btns { display:flex; gap:8px; }
-    .pw-btns button { flex:1; padding:0.65rem; border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-size:0.9rem; font-weight:600; cursor:pointer; border:1.5px solid var(--border); }
-    .pw-btn-ok { background:var(--blue); color:var(--white); border-color:var(--blue); }
-    .pw-btn-ok:hover { background:var(--blue-d); }
-    .pw-btn-cancel { background:var(--white); color:var(--muted); }
-    .pw-btn-cancel:hover { background:var(--bg); }
+    if (action === 'getOrder') {
+      var date  = e.parameter.date;
+      var key   = e.parameter.key;
+      var sheet = ss.getSheetByName('Tuckshop');
+      if (!sheet || sheet.getLastRow() <= 1) return _json({result:'notfound'});
+      var vals = sheet.getDataRange().getValues();
+      var rowsFound = [], startRow = -1, grandTotal = '', timestampFound = '', statusFound = '';
+      for (var i = 1; i < vals.length; i++) {
+        var vDate = (vals[i][1] instanceof Date)
+          ? Utilities.formatDate(vals[i][1], Session.getScriptTimeZone(), 'yyyy-MM-dd')
+          : String(vals[i][1]).trim();
+        var vKey = String(vals[i][2]).trim();
+        var a0   = String(vals[i][0]).trim();
+        if (vDate === date && vKey === key && a0 !== '' && a0 !== 'TOTALS') {
+          startRow = i + 1; grandTotal = vals[i][7]; timestampFound = a0; statusFound = String(vals[i][9]).trim();
+          rowsFound.push({product:vals[i][3], amount:vals[i][4], price:vals[i][5], total:vals[i][6]});
+        } else if (startRow !== -1 && a0 === '' && String(vals[i][3]).trim() !== '') {
+          rowsFound.push({product:vals[i][3], amount:vals[i][4], price:vals[i][5], total:vals[i][6]});
+        } else if (startRow !== -1) { break; }
+      }
+      return _json({
+        result: rowsFound.length ? 'success' : 'notfound',
+        startRow: startRow, rows: rowsFound,
+        grandTotal: grandTotal, timestamp: timestampFound, status: statusFound
+      });
+    }
 
-    /* ── DAILY MENU ── */
-    .menu-section { margin-bottom: 2rem; }
-    .menu-card { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 1.6rem 2rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
-    .menu-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.2rem; }
-    .menu-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--blue); font-weight: 600; }
-    .menu-date-display { font-size: 0.82rem; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px; }
-    .menu-date-display.stale { color: var(--red); border-color: #f5bfbf; background: #fdf0f0; }
-    .menu-items-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 1rem; }
-    .menu-item-chip { display: flex; justify-content: space-between; align-items: center; background: var(--blue-l); border-radius: 8px; padding: 6px 12px; font-size: 0.85rem; }
-    .menu-item-name { color: var(--blue); font-weight: 500; }
-    .menu-item-price { color: var(--gold); font-weight: 700; font-size: 0.88rem; white-space: nowrap; margin-left: 8px; }
-    .menu-note { margin-top: 1rem; font-size: 0.83rem; color: var(--muted); background: var(--gold-l); border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; padding: 8px 12px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; overflow-wrap: break-word; }
-    .menu-empty { font-size: 0.88rem; color: var(--muted); text-align: center; padding: 1rem 0; font-style: italic; }
-    .menu-edit-btn { font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600; background: none; border: 1.5px solid var(--border); border-radius: 20px; color: var(--muted); padding: 4px 14px; cursor: pointer; transition: all 0.18s; }
+    if (action === 'getSalesHistory') {
+      var hist = ss.getSheetByName('TuckshopHistory');
+      var rows = [];
+      if (hist && hist.getLastRow() > 1) {
+        var vals = hist.getRange(2, 1, hist.getLastRow() - 1, 3).getValues();
+        for (var i = 0; i < vals.length; i++) {
+          var raw = vals[i][0] instanceof Date
+            ? Utilities.formatDate(vals[i][0], 'America/Jamaica', 'yyyy-MM-dd')
+            : String(vals[i][0]).trim();
+          var d = vals[i][0] instanceof Date
+            ? Utilities.formatDate(vals[i][0], 'America/Jamaica', 'MMM dd')
+            : String(vals[i][0]).trim();
+          var t = parseFloat(vals[i][1]) || 0;
+          var p = {};
+          try { p = JSON.parse(String(vals[i][2])); } catch(e) {}
+          if (d) rows.push({ date: d, rawDate: raw, total: t, products: p });
+        }
+      }
+      return _json({ result: 'success', rows: rows });
+    }
 
+    if (action === 'getSalesSummary') {
+      var total = 0;
+      var s = ss.getSheetByName('Tuckshop');
+      if (s && s.getLastRow() > 1) {
+        var v = s.getRange(2, 1, s.getLastRow() - 1, 10).getValues();
+        for (var i = 0; i < v.length; i++) {
+          if (String(v[i][0]).trim() === 'TOTALS') {
+            total += parseFloat(v[i][7]) || 0;
+          }
+        }
+      }
+      return _json({result:'success', total: total});
+    }
 
-    /* MENU EDITOR */
-    .menu-editor { display: none; margin-top: 1.2rem; border-top: 1px solid var(--border); padding-top: 1.2rem; }
-    .menu-editor.open { display: block; }
-    .menu-editor-date { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; flex-wrap: wrap; }
-    .menu-editor-date label { font-size: 0.82rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
-    .menu-editor-date input { font-family: 'DM Sans', sans-serif; font-size: 0.88rem; border: 1.5px solid var(--border); border-radius: var(--radius); padding: 0.45rem 0.7rem; outline: none; }
-    .menu-editor-date input:focus { border-color: var(--blue); }
-    .menu-row { display: grid; grid-template-columns: 1fr 110px 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .menu-row select, .menu-row input[type="text"] { font-family: 'DM Sans', sans-serif; font-size: 0.88rem; color: var(--text); background: var(--white); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 0.45rem 0.65rem; outline: none; width: 100%; -webkit-appearance: none; }
-    .menu-row select { padding-right: 1.8rem; cursor: pointer; }
-    .menu-row select:focus, .menu-row input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,46,107,0.10); }
-    .menu-note-input { width: 100%; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; border: 1.5px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.75rem; outline: none; resize: vertical; min-height: 70px; margin-top: 0.5rem; }
-    .menu-note-input:focus { border-color: var(--blue); }
-    .menu-save-btn { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 600; background: var(--blue); color: var(--white); border: none; border-radius: var(--radius); padding: 0.65rem 1.6rem; cursor: pointer; margin-top: 1rem; transition: background 0.18s; }
+    return _json({result:'success', message:'Tuckshop API active'});
+  } catch(err) {
+    return _json({result:'error', message:err.toString()});
+  }
+}
 
-    .menu-add-btn { display: flex; align-items: center; gap: 6px; background: none; border: 1.5px dashed var(--border); border-radius: var(--radius); color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; padding: 0.45rem 1rem; cursor: pointer; margin-top: 4px; width: 100%; justify-content: center; transition: all 0.18s; }
+function saveProducts(ss, data) {
+  var sheet = ss.getSheetByName('TuckshopMenu');
+  if (!sheet) {
+    sheet = ss.insertSheet('TuckshopMenu');
+    sheet.appendRow(['Date','Product','Price (J$)','Initial Stock','Available']);
+    sheet.getRange(1,1,1,5)
+      .setBackground('#1A2E6B').setFontColor('#FFFFFF').setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    [110,200,100,80,80].forEach(function(w,i){ sheet.setColumnWidth(i+1,w); });
+  }
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) sheet.deleteRows(2, lastRow - 1);
+  var products = data.products || [];
+  var stock    = data.stock    || {};
+  var date     = String(data.date || '');
+  if (products.length > 0) {
+    var menuData = products.map(function(p) {
+      var initialStock = stock[p.name] !== undefined ? stock[p.name] : '';
+      return [date, p.name, p.price || '', initialStock, initialStock];
+    });
+    sheet.getRange(2, 1, menuData.length, 5).setValues(menuData);
+  }
+  return _json({result:'success'});
+}
 
+function updateStock(ss, data) {
+  var sheet = ss.getSheetByName('TuckshopMenu');
+  if (!sheet || sheet.getLastRow() <= 1) return _json({result:'success'});
+  var stock = data.stock || {};
+  var vals  = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var name = String(vals[i][1]).trim();
+    if (name && stock[name] !== undefined) {
+      sheet.getRange(i + 2, 4).setValue(stock[name]);
+    }
+  }
+  return _json({result:'success'});
+}
 
-    /* ── EDIT ORDER ── */
-    .edit-order-btn { font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600; background: none; border: 1.5px solid var(--border); border-radius: var(--radius); color: var(--muted); padding: 0.5rem 1.2rem; cursor: pointer; margin-top: 1rem; width: 100%; transition: all 0.18s; }
-    .edit-order-btn:hover { border-color: var(--gold); color: var(--gold); }
-    .edit-panel { display: none; margin-top: 1.2rem; border-top: 1px solid var(--border); padding-top: 1.2rem; position: relative; }
-    .edit-panel.open { display: block; }
-    .edit-search { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; margin-bottom: 1rem; }
-    .edit-search label { font-size: 0.82rem; font-weight: 500; color: var(--muted); display: block; margin-bottom: 4px; }
-    .edit-search input, .edit-search select { font-family: 'DM Sans', sans-serif; font-size: 0.88rem; border: 1.5px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.7rem; outline: none; width: 100%; -webkit-appearance: none; }
-    .edit-search input:focus, .edit-search select:focus { border-color: var(--blue); }
-    .find-btn { font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 600; background: var(--blue); color: var(--white); border: none; border-radius: var(--radius); padding: 0.55rem 1rem; cursor: pointer; white-space: nowrap; }
-    .edit-result { display: none; margin-top: 1rem; }
-    .edit-result.show { display: block; }
-    .edit-msg { font-size: 0.85rem; padding: 0.7rem 1rem; border-radius: var(--radius); margin-bottom: 0.8rem; }
-    .edit-msg.notfound { background: #fdf0f0; border: 1px solid #f5bfbf; color: #8b1a1a; }
-    .edit-msg.found { background: var(--green-l); border: 1px solid #aeddc0; color: #145229; }
-    .update-btn { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 600; background: var(--gold); color: var(--white); border: none; border-radius: var(--radius); padding: 0.65rem 1.6rem; cursor: pointer; margin-top: 1rem; width: 100%; }
-    .update-btn:disabled { background: #d4b87a; cursor: not-allowed; }
+function appendTuckshopOrder(sheet, data) {
+  var className   = String(data.className).trim();
+  var gradeGroup  = getGradeGroup(className);
+  var rows        = data.rows;
+  var grandTotal  = data.grandTotal;
+  var timestamp   = String(data.timestamp).trim();
+  var isUpdate    = data.isUpdate === true;
+  var forceStatus = data.forceStatus || null;
 
-    /* AUTOCOMPLETE */
-    .autocomplete-wrap { position: relative; }
-    .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1.5px solid var(--blue); border-top: none; border-radius: 0 0 var(--radius) var(--radius); z-index: 100; max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .autocomplete-item { padding: 8px 12px; font-size: 0.88rem; cursor: pointer; color: var(--text); }
-    .autocomplete-item:hover { background: var(--blue-l); color: var(--blue); }
-  </style>
-</head>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<body>
+  var lastRow = sheet.getLastRow();
+  var vals    = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, 10).getValues() : [];
 
-<header class="site-header">
-  <div class="header-stripe"></div>
-  <div class="header-body">
-    <div class="crest"><img src="data:image/png;base64,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" alt="OHPIS Logo"/></div>
-    <div class="school-name">Old Harbour Primary &amp; Infant School</div>
-    <div class="school-sub">Old Harbour, Saint Catherine Parish, Jamaica</div>
-    <div class="header-tag">Daily Lunch Order</div>
-  </div>
-</header>
+  var gradeMap = {};
+  var orderMap = {};
 
-<div class="container">
+  var i = 0;
+  while (i < vals.length) {
+    var a0   = String(vals[i][0]).trim();
+    var col1 = String(vals[i][1]).trim();
+    var col3 = String(vals[i][3]).trim();
 
+    if (a0 === 'TOTALS') {
+      var g = col1;
+      gradeMap[g] = gradeMap[g] || {};
+      gradeMap[g].totalsSheetRow = i + 2;
+      i++;
+      continue;
+    }
 
-  <!-- ══════════ DAILY MENU ══════════ -->
-  <div class="menu-section">
-    <div class="menu-card">
-      <div class="menu-header">
-        <span class="menu-title">📋 Today's Menu</span>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span class="menu-date-display" id="menu-date-label">No date set</span>
-          <button class="menu-edit-btn" onclick="openMenuEditor()">Edit Menu</button>
-        </div>
-      </div>
-      <div id="menu-display"><p class="menu-empty">Menu not set for today.</p></div>
-      <div id="menu-note-display"></div>
+    if (a0 !== '' && col3 !== '') {
+      var ts  = a0;
+      var cls = String(vals[i][2]).trim();
+      var gr  = String(vals[i][8]).trim() || getGradeGroup(cls);
+      var st  = String(vals[i][9]).trim();
+      gradeMap[gr] = gradeMap[gr] || {};
 
-      <!-- EDITOR (hidden until password) -->
-      <div class="menu-editor" id="menu-editor" style="position:relative;">
-        <button type="button" onclick="document.getElementById('menu-editor').classList.remove('open')" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
-        <div class="menu-editor-date">
-          <label>Menu Date:</label>
-          <input type="date" id="menu-date-input"/>
-        </div>
-        <div id="menu-rows"></div>
-        <button type="button" class="menu-add-btn" onclick="addMenuRow()">+ Add Item</button>
-        <div style="margin-top:0.8rem;">
-          <label style="font-size:0.82rem;font-weight:500;color:var(--muted);">Notes / Observations</label>
-          <textarea class="menu-note-input" id="menu-note-input" placeholder="Any special notes for today…"></textarea>
-        </div>
-        <div id="menu-save-error" style="display:none;font-size:0.8rem;color:var(--red);margin-top:0.5rem;"></div>
-        <button type="button" class="menu-save-btn" onclick="saveMenu()">Save Menu</button>
-      </div>
-    </div>
-  </div>
+      var orderStart   = i + 2;
+      var orderNumRows = 1;
+      var j = i + 1;
+      while (j < vals.length
+             && String(vals[j][0]).trim() === ''
+             && String(vals[j][3]).trim() !== '') {
+        orderNumRows++;
+        j++;
+      }
+      orderMap[ts + '_' + cls] = {
+        sheetRowStart: orderStart,
+        numRows: orderNumRows,
+        status: st,
+        grade: gr
+      };
+      i = j;
+      continue;
+    }
+    i++;
+  }
 
-  <div class="tabs">
-    <button class="tab-btn" onclick="switchTab('classes')">Classes</button>
-    <button class="tab-btn" onclick="switchTab('office')">Office</button>
-    <button class="tab-btn" onclick="switchTab('tuckshop')">Tuckshop</button>
-    <button class="tab-btn" onclick="switchTab('admin')">Admin</button>
-  </div>
+  // ── 2b. Rechazar duplicado ────────────────────────────────────
+  if (!isUpdate) {
+    var incomingDate = String(data.date || '').trim();
+    var incomingCls  = String(data.className).trim();
+    for (var k in orderMap) {
+      var entry  = orderMap[k];
+      var rowIdx = entry.sheetRowStart - 2;
+      if (rowIdx >= 0 && rowIdx < vals.length) {
+        var storedDate = (vals[rowIdx][1] instanceof Date)
+          ? Utilities.formatDate(vals[rowIdx][1], Session.getScriptTimeZone(), 'yyyy-MM-dd')
+          : String(vals[rowIdx][1]).trim();
+        var storedCls = String(vals[rowIdx][2]).trim();
+        if (storedDate === incomingDate && storedCls === incomingCls) {
+          return ContentService
+            .createTextOutput(JSON.stringify({result:'duplicate', message:'Order already exists for ' + incomingCls + ' on ' + incomingDate + '. Use Edit to update it.'}))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+    }
+  }
 
-  <!-- ══════════ CLASSES TAB ══════════ -->
-  <div class="tab-panel" id="tab-classes">
-    <div class="card">
-      <form id="classForm" novalidate>
-        <div id="c-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
-          🔒 <span id="c-lock-text">Class orders are closed. Orders accepted 7:30 AM – 9:00 AM.</span>
-        </div>
-        <div class="section-label">Class Lunch Order</div>
-        <div class="form-grid">
-
-          <div class="form-group">
-            <label for="c-date">Date</label>
-            <input type="date" id="c-date" required/>
-          </div>
-
-          <div class="form-group">
-            <label for="c-class">Class</label>
-            <select id="c-class" required>
-              <option value="">— Select class —</option>
-              <optgroup label="Grade 1"><option>Grade 1O</option><option>Grade 1L</option><option>Grade 1D</option><option>Grade 1H</option><option>Grade 1A</option><option>Grade 1R</option><option>Grade 1B</option><option>Grade 1U</option></optgroup>
-              <optgroup label="Grade 2"><option>Grade 2O</option><option>Grade 2L</option><option>Grade 2D</option><option>Grade 2H</option><option>Grade 2A</option><option>Grade 2R</option><option>Grade 2B</option><option>Grade 2U</option></optgroup>
-              <optgroup label="Grade 3"><option>Grade 3O</option><option>Grade 3L</option><option>Grade 3D</option><option>Grade 3H</option><option>Grade 3A</option><option>Grade 3R</option><option>Grade 3B</option><option>Grade 3U</option></optgroup>
-              <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
-              <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
-              <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-              <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
-              <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
-            </select>
-          </div>
-
-        </div>
-
-        <!-- ITEMS -->
-        <div class="items-section">
-          <div class="items-header">
-            <span>Lunch Type</span>
-            <span>Amount</span>
-            <span>Price (J$)</span>
-            <span style="text-align:right">Subtotal</span>
-            <span></span>
-          </div>
-          <div id="c-items"></div>
-          <button type="button" class="btn-add-row" onclick="addRow('c')">+ Add Lunch Item</button>
-        </div>
-
-        <div class="grand-total-box">
-          <span class="grand-total-label">Order Total</span>
-          <span class="grand-total-value" id="c-grand-total">J$ 0.00</span>
-        </div>
-
-        <div class="submit-row">
-          <button type="submit">Submit Class Order</button>
-          <p class="submit-note">All items will be recorded in the lunch register.</p>
-        </div>
-        <div class="status-msg" id="c-status"></div>
-
-        <button type="button" id="c-edit-canteen-btn" class="edit-order-btn" onclick="toggleEditPanel('c')">✏️ Edit Class Order</button>
-        <button type="button" class="edit-order-btn" style="margin-top:0.5rem;border-color:var(--blue);color:var(--blue);" onclick="toggleCheckStatus()">🔍 Check Class or Office Order Status</button>
-        <div class="edit-panel" id="c-check-status-panel">
-          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
-          <div style="display:flex;gap:8px;margin-bottom:1rem;">
-            <button type="button" id="chs-tab-class" onclick="switchCheckTab('class')" style="flex:1;padding:0.5rem;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;cursor:pointer;background:var(--blue);color:#fff;border:1.5px solid var(--blue);">Class</button>
-            <button type="button" id="chs-tab-office" onclick="switchCheckTab('office')" style="flex:1;padding:0.5rem;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;cursor:pointer;background:var(--white);color:var(--muted);border:1.5px solid var(--border);">Office</button>
-          </div>
-          <div class="edit-search">
-            <div id="chs-class-wrap">
-              <label>Class</label>
-              <select id="chs-class">
-                <option value="">— Select class —</option>
-                <optgroup label="Grade 1"><option>Grade 1O</option><option>Grade 1L</option><option>Grade 1D</option><option>Grade 1H</option><option>Grade 1A</option><option>Grade 1R</option><option>Grade 1B</option><option>Grade 1U</option></optgroup>
-                <optgroup label="Grade 2"><option>Grade 2O</option><option>Grade 2L</option><option>Grade 2D</option><option>Grade 2H</option><option>Grade 2A</option><option>Grade 2R</option><option>Grade 2B</option><option>Grade 2U</option></optgroup>
-                <optgroup label="Grade 3"><option>Grade 3O</option><option>Grade 3L</option><option>Grade 3D</option><option>Grade 3H</option><option>Grade 3A</option><option>Grade 3R</option><option>Grade 3B</option><option>Grade 3U</option></optgroup>
-                <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
-                <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
-                <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
-                <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
-              </select>
-            </div>
-            <div id="chs-name-wrap" style="display:none">
-              <label>Name</label>
-              <input type="text" id="chs-name" placeholder="e.g. Mrs. Campbell"/>
-            </div>
-            <div><label>Date</label><input type="date" id="chs-date"/></div>
-            <button type="button" class="find-btn" onclick="checkOrderStatus()">Check</button>
-          </div>
-          <div class="edit-result" id="chs-result">
-            <div class="edit-msg" id="chs-msg"></div>
-          </div>
-        </div>
-        <div class="edit-panel" id="c-edit-panel">
-          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
-          <div class="edit-search">
-            <div>
-              <label>Class</label>
-              <select id="c-edit-class">
-                <option value="">— Select class —</option>
-                <optgroup label="Grade 1"><option>Grade 1O</option><option>Grade 1L</option><option>Grade 1D</option><option>Grade 1H</option><option>Grade 1A</option><option>Grade 1R</option><option>Grade 1B</option><option>Grade 1U</option></optgroup>
-                <optgroup label="Grade 2"><option>Grade 2O</option><option>Grade 2L</option><option>Grade 2D</option><option>Grade 2H</option><option>Grade 2A</option><option>Grade 2R</option><option>Grade 2B</option><option>Grade 2U</option></optgroup>
-                <optgroup label="Grade 3"><option>Grade 3O</option><option>Grade 3L</option><option>Grade 3D</option><option>Grade 3H</option><option>Grade 3A</option><option>Grade 3R</option><option>Grade 3B</option><option>Grade 3U</option></optgroup>
-                <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
-                <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
-                <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
-              <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
-              </select>
-            </div>
-            <div>
-              <label>Date</label>
-              <input type="date" id="c-edit-date"/>
-            </div>
-            <button type="button" class="find-btn" onclick="findOrder('c')">Find</button>
-          </div>
-          <div class="edit-result" id="c-edit-result">
-            <div class="edit-msg" id="c-edit-msg"></div>
-            <div id="c-edit-items"></div>
-            <button type="button" class="menu-add-btn" id="c-edit-add" style="display:none" onclick="addRow('c-edit')">+ Add Item</button>
-            <div class="grand-total-box" id="c-edit-total-box" style="display:none">
-              <span class="grand-total-label">Updated Total</span>
-              <span class="grand-total-value" id="c-edit-grand-total">J$ 0.00</span>
-            </div>
-            <button type="button" class="update-btn" id="c-update-btn" style="display:none" onclick="updateOrder('c')">Update Order</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ══════════ OFFICE TAB ══════════ -->
-  <div class="tab-panel" id="tab-office">
-    <div class="card">
-      <form id="officeForm" novalidate>
-        <div class="section-label">Office Lunch Order</div>
-        <div class="form-grid">
-
-          <div class="form-group">
-            <label for="o-date">Date</label>
-            <input type="date" id="o-date" required/>
-          </div>
-
-          <div class="form-group">
-            <label for="o-name">Name</label>
-            <input type="text" id="o-name" placeholder="e.g. Mrs. Campbell" required/>
-          </div>
-
-        </div>
-
-        <!-- ITEMS -->
-        <div class="items-section">
-          <div class="items-header">
-            <span>Lunch Type</span>
-            <span>Amount</span>
-            <span>Price (J$)</span>
-            <span style="text-align:right">Subtotal</span>
-            <span></span>
-          </div>
-          <div id="o-items"></div>
-          <button type="button" class="btn-add-row" onclick="addRow('o')">+ Add Lunch Item</button>
-        </div>
-
-        <div class="grand-total-box">
-          <span class="grand-total-label">Order Total</span>
-          <span class="grand-total-value" id="o-grand-total">J$ 0.00</span>
-        </div>
-
-        <div class="submit-row">
-          <button type="submit">Submit Office Order</button>
-          <p class="submit-note">All items will be recorded in the lunch register.</p>
-        </div>
-        <div class="status-msg" id="o-status"></div>
-
-        <button type="button" class="edit-order-btn" onclick="toggleEditPanel('o')">✏️ Edit Office Order</button>
-        <div class="edit-panel" id="o-edit-panel">
-          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
-          <div class="edit-search">
-            <div>
-              <label>Name</label>
-              <input type="text" id="o-edit-name" placeholder="e.g. Mrs. Campbell"/>
-            </div>
-            <div>
-              <label>Date</label>
-              <input type="date" id="o-edit-date"/>
-            </div>
-            <button type="button" class="find-btn" onclick="findOrder('o')">Find</button>
-          </div>
-          <div class="edit-result" id="o-edit-result">
-            <div class="edit-msg" id="o-edit-msg"></div>
-            <div id="o-edit-items"></div>
-            <button type="button" class="menu-add-btn" id="o-edit-add" style="display:none" onclick="addRow('o-edit')">+ Add Item</button>
-            <div class="grand-total-box" id="o-edit-total-box" style="display:none">
-              <span class="grand-total-label">Updated Total</span>
-              <span class="grand-total-value" id="o-edit-grand-total">J$ 0.00</span>
-            </div>
-            <button type="button" class="update-btn" id="o-update-btn" style="display:none" onclick="updateOrder('o')">Update Order</button>
-          </div>
-        </div>
-      </form>
-    </div>
-
-    <!-- SALES SUMMARY PANEL -->
-    <div class="card" style="margin-top:1rem;">
-      <div class="section-label">📊 Today's Sales Summary</div>
-      <div id="sales-summary-display" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.5rem;">
-        <div style="background:var(--blue-l);border-radius:10px;padding:1rem;text-align:center;">
-          <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen + Office</div>
-          <div id="sales-lunch-total" style="font-size:1.4rem;font-weight:700;color:var(--blue);">—</div>
-        </div>
-        <div style="background:#e8f5ee;border-radius:10px;padding:1rem;text-align:center;">
-          <div style="font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tuckshop</div>
-          <div id="sales-tuckshop-total" style="font-size:1.4rem;font-weight:700;color:var(--green);">—</div>
-        </div>
-      </div>
-      <button type="button" onclick="loadSalesSummary()" style="margin-top:0.8rem;width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.5rem;cursor:pointer;">↻ Refresh</button>
-    </div>
-
-    <!-- SALES HISTORY CHARTS -->
-    <div class="card" style="margin-top:1rem;">
-      <div class="section-label">📈 Sales History</div>
-      <div style="margin-top:0.75rem;">
-        <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen + Office — Daily Total (J$)</div>
-        <div id="chart-lunch-daily-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-          <canvas id="chart-lunch-daily" height="200"></canvas>
-        </div>
-      </div>
-      <div style="margin-top:1.5rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-        <div>
-          <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen+Office Products</div>
-          <canvas id="chart-lunch-products" height="200"></canvas>
-        </div>
-        <div>
-          <div style="font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tuckshop Products</div>
-          <canvas id="chart-tuckshop-products" height="200"></canvas>
-        </div>
-      </div>
-      <div style="margin-top:1.5rem;">
-        <div style="font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tuckshop — Daily Total (J$)</div>
-        <div id="chart-tuckshop-daily-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-          <canvas id="chart-tuckshop-daily" height="200"></canvas>
-        </div>
-      </div>
-      <div style="margin-top:1.5rem;">
-        <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen + Office — Sales by Day of Week</div>
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-          <canvas id="chart-lunch-weekday" height="200"></canvas>
-        </div>
-      </div>
-      <div style="margin-top:1.5rem;">
-        <div style="font-size:0.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tuckshop — Sales by Day of Week</div>
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-          <canvas id="chart-tuckshop-weekday" height="200"></canvas>
-        </div>
-      </div>
-      <button type="button" onclick="loadSalesCharts()" style="margin-top:0.8rem;width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.5rem;cursor:pointer;">↻ Refresh Charts</button>
-    </div>
-  </div>
-
-
-  <!-- ══════════ TUCKSHOP TAB ══════════ -->
-  <div class="tab-panel" id="tab-tuckshop">
-
-    <!-- PRODUCT LIST CARD (outside any form) -->
-    <div class="card" style="margin-bottom:1rem;">
-      <div class="section-label">Today's Products</div>
-      <div id="tuckshop-date-display" style="margin-bottom:0.8rem;"></div>
-      <div id="tuckshop-products-display"><p class="menu-empty">No products set yet.</p></div>
-      <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
-        <button type="button" class="menu-edit-btn" style="flex:1;" id="tuckshop-refresh-btn" onclick="var b=this;b.textContent='⏳ Refreshing...';b.disabled=true;refreshStockOnly();setTimeout(function(){b.textContent='✅ Updated';setTimeout(function(){b.textContent='🔄 Refresh Stock';b.disabled=false;},1200);},1000);">🔄 Refresh Stock</button>
-        <button type="button" class="menu-edit-btn" style="flex:1;" onclick="openTuckshopEditor()">✏️ Edit Products &amp; Inventory</button>
-      </div>
-
-      <!-- EDITOR — completely outside any form tag -->
-      <div class="menu-editor" id="tuckshop-editor">
-        <div style="margin-bottom:1rem;">
-          <label style="font-size:0.82rem;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Date (required)</label>
-          <input type="date" id="tuckshop-date" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.75rem;width:100%;outline:none;"/>
-        </div>
-        <div style="margin-bottom:1rem;">
-          <label style="font-size:0.82rem;font-weight:500;color:var(--muted);display:block;margin-bottom:8px;">Patties available</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-            <div>
-              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Beef Patty</label>
-              <input type="number" id="tuckshop-stock-beef" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
-            </div>
-            <div>
-              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Cheese Patty</label>
-              <input type="number" id="tuckshop-stock-cheese" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
-            </div>
-            <div>
-              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Chicken Patty</label>
-              <input type="number" id="tuckshop-stock-chicken" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
-            </div>
-          </div>
-        </div>
-        <div style="margin-bottom:0.5rem;">
-          <label style="font-size:0.82rem;font-weight:500;color:var(--muted);">Products &amp; Prices</label>
-        </div>
-        <div id="tuckshop-product-rows"></div>
-        <button type="button" class="menu-add-btn" onclick="addTuckshopProductRow()">+ Add Product</button>
-        <div id="tuckshop-save-error" style="display:none;font-size:0.8rem;color:var(--red);margin-top:0.5rem;"></div>
-        <button type="button" class="menu-save-btn" style="margin-top:1rem;width:100%;" id="tuckshop-save-btn" onclick="saveTuckshopProducts()">Save Products</button>
-      </div>
-    </div>
-
-    <!-- ORDER CARD (separate from editor) -->
-    <div class="card">
-      <div class="section-label">Class Tuckshop Order</div>
-      <div id="tuckshop-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
-        <span id="tuckshop-lock-text">🔒 Tuckshop orders accepted 7:30 AM – 9:30 AM only.</span>
-      </div>
-      <form id="tuckshopForm" novalidate>
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="t-date">Date</label>
-            <input type="date" id="t-date"/>
-          </div>
-          <div class="form-group">
-            <label for="t-class">Class</label>
-            <select id="t-class">
-              <option value="">— Select class —</option>
-              <optgroup label="Grade 1"><option>Grade 1O</option><option>Grade 1L</option><option>Grade 1D</option><option>Grade 1H</option><option>Grade 1A</option><option>Grade 1R</option><option>Grade 1B</option><option>Grade 1U</option></optgroup>
-              <optgroup label="Grade 2"><option>Grade 2O</option><option>Grade 2L</option><option>Grade 2D</option><option>Grade 2H</option><option>Grade 2A</option><option>Grade 2R</option><option>Grade 2B</option><option>Grade 2U</option></optgroup>
-              <optgroup label="Grade 3"><option>Grade 3O</option><option>Grade 3L</option><option>Grade 3D</option><option>Grade 3H</option><option>Grade 3A</option><option>Grade 3R</option><option>Grade 3B</option><option>Grade 3U</option></optgroup>
-              <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
-              <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
-              <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-              <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
-              <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
-            </select>
-          </div>
-        </div>
-        <div class="items-section" style="margin-top:1rem;">
-          <div class="items-header">
-            <span>Product</span><span>Amount</span><span>Price (J$)</span><span style="text-align:right">Subtotal</span><span></span>
-          </div>
-          <div id="t-items"></div>
-          <button type="button" class="btn-add-row" onclick="addTuckshopOrderRow()">+ Add Item</button>
-          <div id="t-stock-warning" style="display:none;margin-top:8px;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:8px;padding:8px 12px;font-size:0.85rem;line-height:1.7;"></div>
-        </div>
-        <div class="grand-total-box" style="margin-top:1rem;">
-          <span class="grand-total-label">Order Total</span>
-          <span class="grand-total-value" id="t-grand-total">J$ 0.00</span>
-        </div>
-        <div class="submit-row">
-          <button type="submit">Submit Tuckshop Order</button>
-        </div>
-        <div class="status-msg" id="t-status"></div>
-        <button type="button" class="edit-order-btn" onclick="toggleEditPanel('t')">✏️ Edit Tuckshop Order</button>
-        <button type="button" class="edit-order-btn" style="margin-top:0.5rem;border-color:var(--blue);color:var(--blue);" onclick="toggleCheckStatusTuckshop()">🔍 Check Tuckshop Order Status</button>
-        <div class="edit-panel" id="t-check-status-panel">
-          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
-          <div class="edit-search">
-            <div><label>Class</label>
-              <select id="ths-class">
-                <option value="">— Select class —</option>
-                <optgroup label="Grade 1"><option>Grade 1O</option><option>Grade 1L</option><option>Grade 1D</option><option>Grade 1H</option><option>Grade 1A</option><option>Grade 1R</option><option>Grade 1B</option><option>Grade 1U</option></optgroup>
-                <optgroup label="Grade 2"><option>Grade 2O</option><option>Grade 2L</option><option>Grade 2D</option><option>Grade 2H</option><option>Grade 2A</option><option>Grade 2R</option><option>Grade 2B</option><option>Grade 2U</option></optgroup>
-                <optgroup label="Grade 3"><option>Grade 3O</option><option>Grade 3L</option><option>Grade 3D</option><option>Grade 3H</option><option>Grade 3A</option><option>Grade 3R</option><option>Grade 3B</option><option>Grade 3U</option></optgroup>
-                <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
-                <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
-                <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
-                <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
-              </select>
-            </div>
-            <div><label>Date</label><input type="date" id="ths-date"/></div>
-            <button type="button" class="find-btn" onclick="checkTuckshopStatus()">Check</button>
-          </div>
-          <div class="edit-result" id="ths-result">
-            <div class="edit-msg" id="ths-msg"></div>
-          </div>
-        </div>
-        <div class="edit-panel" id="t-edit-panel">
-          <button type="button" onclick="closePanel(this)" style="position:absolute;top:0;right:0;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
-          <div class="edit-search">
-            <div><label>Class</label>
-              <select id="t-edit-class">
-                <option value="">— Select class —</option>
-                <optgroup label="Grade 1"><option>Grade 1O</option><option>Grade 1L</option><option>Grade 1D</option><option>Grade 1H</option><option>Grade 1A</option><option>Grade 1R</option><option>Grade 1B</option><option>Grade 1U</option></optgroup>
-                <optgroup label="Grade 2"><option>Grade 2O</option><option>Grade 2L</option><option>Grade 2D</option><option>Grade 2H</option><option>Grade 2A</option><option>Grade 2R</option><option>Grade 2B</option><option>Grade 2U</option></optgroup>
-                <optgroup label="Grade 3"><option>Grade 3O</option><option>Grade 3L</option><option>Grade 3D</option><option>Grade 3H</option><option>Grade 3A</option><option>Grade 3R</option><option>Grade 3B</option><option>Grade 3U</option></optgroup>
-                <optgroup label="Grade 4"><option>Grade 4O</option><option>Grade 4L</option><option>Grade 4D</option><option>Grade 4H</option><option>Grade 4A</option><option>Grade 4R</option><option>Grade 4B</option><option>Grade 4U</option></optgroup>
-                <optgroup label="Grade 5"><option>Grade 5O</option><option>Grade 5L</option><option>Grade 5D</option><option>Grade 5H</option><option>Grade 5A</option><option>Grade 5R</option><option>Grade 5B</option><option>Grade 5U</option></optgroup>
-                <optgroup label="Grade 6"><option>Grade 6O</option><option>Grade 6L</option><option>Grade 6D</option><option>Grade 6H</option><option>Grade 6A</option><option>Grade 6R</option><option>Grade 6B</option><option>Grade 6U</option></optgroup>
-                <optgroup label="Infant"><option>Infant 1H</option><option>Infant 1T</option><option>Infant 2L</option><option>Infant 2K</option></optgroup>
-              <optgroup label="Special Education"><option>Special Education 1</option><option>Special Education 2</option><option>Special Education 3</option></optgroup>
-              </select>
-            </div>
-            <div><label>Date</label><input type="date" id="t-edit-date"/></div>
-            <button type="button" class="find-btn" onclick="findOrder('t')">Find</button>
-          </div>
-          <div class="edit-result" id="t-edit-result">
-            <div class="edit-msg" id="t-edit-msg"></div>
-            <div id="t-edit-items"></div>
-            <button type="button" class="menu-add-btn" id="t-edit-add" style="display:none" onclick="addTuckshopEditRow('','','')">+ Add Item</button>
-            <div class="grand-total-box" id="t-edit-total-box" style="display:none">
-              <span class="grand-total-label">Updated Total</span>
-              <span class="grand-total-value" id="t-edit-grand-total">J$ 0.00</span>
-            </div>
-            <button type="button" class="update-btn" id="t-update-btn" style="display:none" onclick="updateOrder('t')">Update Order</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ══════════ ADMIN TAB ══════════ -->
-  <div class="tab-panel" id="tab-admin">
-    <div class="card" style="position:relative;">
-      <button type="button" onclick="switchTab('classes')" style="position:absolute;top:0.8rem;right:0.8rem;background:none;border:none;font-size:1.1rem;color:var(--muted);cursor:pointer;padding:4px 8px;line-height:1;" title="Close">✕</button>
-      <div class="section-label">🛠️ Lunch Type Manager</div>
-      <p style="font-size:0.85rem;color:var(--muted);margin:0.5rem 0 1rem;">Add, edit or remove lunch types and prices for Classes and Office forms.</p>
-      <div style="display:grid;grid-template-columns:22px 1fr 90px 90px 36px;gap:6px;margin-bottom:4px;">
-        <span></span>
-        <span style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Lunch Type</span>
-        <span style="font-size:0.75rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.05em;">Class J$</span>
-        <span style="font-size:0.75rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.05em;">Office J$</span>
-        <span></span>
-      </div>
-      <div id="admin-items" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;"></div>
-      <button type="button" onclick="adminAddRow()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px dashed var(--border);border-radius:var(--radius);color:var(--muted);padding:0.6rem;cursor:pointer;margin-bottom:1rem;">+ Add Lunch Type</button>
-      <div id="admin-status" style="display:none;padding:0.7rem 1rem;border-radius:10px;font-size:0.88rem;margin-bottom:0.8rem;"></div>
-      <button type="button" onclick="adminSave()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);padding:0.75rem;cursor:pointer;">💾 Save Changes</button>
-      <hr style="border:none;border-top:1px solid var(--border);margin:1.2rem 0;">
-      <div style="font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.6rem;">Developer</div>
-      <button type="button" id="dev-override-btn" onclick="toggleDevOverride()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.6rem;cursor:pointer;">🔓 Enable Classes (bypass time lock)</button>
-      <button type="button" id="dev-override-tuckshop-btn" onclick="toggleDevOverrideTuckshop()" style="width:100%;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.6rem;cursor:pointer;margin-top:0.5rem;">🔓 Enable Tuckshop (bypass time lock)</button>
-    </div>
-  </div>
-
-</div>
-
-<div class="site-footer">
-  © Old Harbour Primary &amp; Infant School &nbsp;·&nbsp; Old Harbour, Saint Catherine, Jamaica &nbsp;·&nbsp; Est. 1875
-</div>
-
-
-
-<div class="pw-overlay" id="pw-overlay">
-  <div class="pw-box">
-    <h3 id="pw-title">🔒 Access</h3>
-    <p id="pw-desc">Enter the password to continue.</p>
-    <input type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()"/>
-    <div class="pw-error" id="pw-error"></div>
-    <div class="pw-btns">
-      <button class="pw-btn-cancel" onclick="closePw()">Cancel</button>
-      <button class="pw-btn-ok" onclick="checkPw()">Enter</button>
-    </div>
-  </div>
-</div>
-<script>  var PW_GENERAL       = 'lunch2026';
-  var PW_OFFICE        = 'office2026';
-  var PW_TUCKSHOP      = 'tuckshop2026';
-  var PW_TUCKSHOP_EDIT = 'Tuckshop2026';
-  var PW_ADMIN         = 'admin2026';
-
-const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEbyjkhmY3jUI-vsDrPDV-jXn0SgvXTO1z_zYf4r-_zvKSSepwRDecIlBeDGg/exec";
-  var tuckshopProducts    = [];
-  var tuckshopStock      = { 'Beef Patty': 0, 'Cheese Patty': 0, 'Chicken Patty': 0 };
-  var tuckshopDate        = '';
-  var tuckshopInitialized = false;
-
-// ── DAILY MENU ──
-  var menuUnlocked = false;
-  var menuRowCounter = 0;
-
-  var MENU_LUNCH_TYPES = [
-    "Teachers regular","Teachers chips","Children rice and peas","Children chicken and chips",
-    "Children/chips","C/rice","Students rice","Students chips","Teacher/C chips",
-    "Pepper","Cup soup","Cup soup with pepper","Children big rice and peas",
-    "Students big chicken and chips","Teachers children","Special","Adult",
-    "Support staff","Support chips"
-  ];
-
-  // Load saved menu from localStorage on page load
-  window.addEventListener('load', function() {
-    showModal('🍽️ Lunch Order System', 'Enter the password to access the lunch order system.');
-    // Lazy load menu after page is interactive
-    setTimeout(function() { loadMenuDisplay(); }, 300);
-    // Load tuckshop products/stock from GS on page load (same pattern as menu)
-    setTimeout(function() { loadTuckshopProducts(); }, 400);
+  var newOrderRows = rows.map(function(r, idx) {
+    return [
+      idx === 0 ? data.timestamp : '',
+      idx === 0 ? data.date      : '',
+      idx === 0 ? className      : '',
+      r.product, r.amount, r.price, r.total,
+      idx === 0 ? grandTotal     : '',
+      idx === 0 ? gradeGroup     : '',
+      '',
+      ''
+    ];
   });
 
-  function loadMenuDisplay() {
-    // Load from Google Sheet
-    fetch(SCRIPT_URL + '?action=getMenu')
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result === 'success' && res.menu) {
-          renderMenu(res.menu);
-        }
-      })
-      .catch(function(err) { console.error('Menu load error:', err); });
-  }
+  var tsKey          = timestamp + '_' + className;
+  var resolvedStatus = forceStatus
+    || (orderMap[tsKey] ? orderMap[tsKey].status : null)
+    || 'Pending';
+  newOrderRows[0][9] = resolvedStatus;
 
-  var todayMenuItems = [];
+  var validationOptions = ['Pending','Served','Incomplete','Pick up','Updated','Cancelled'];
+  var validationRule    = SpreadsheetApp
+    .newDataValidation().requireValueInList(validationOptions).setAllowInvalid(true).build();
+  var paymentOptions = ['Not paid','Paid'];
+  var paymentRule    = SpreadsheetApp
+    .newDataValidation().requireValueInList(paymentOptions).setAllowInvalid(true).build();
 
-  function renderMenu(saved) {
-    if (!saved) return;
-    var label    = document.getElementById('menu-date-label');
-    var todayStr = getJamaicaToday();
+  if (isUpdate && orderMap[tsKey]) {
+    var existing = orderMap[tsKey];
+    var oldStart = existing.sheetRowStart;
+    var oldLen   = existing.numRows;
+    var newLen   = newOrderRows.length;
 
-    // Clean date — remove apostrophes, spaces, take first 10 chars
-    var dateStr = String(saved.date || '');
-    dateStr = dateStr.replace(/'/g, '').trim().substring(0, 10);
-
-    label.textContent = formatDate(dateStr);
-    todayMenuItems = (saved.items || []).map(function(i){ return i.name.toLowerCase().trim(); });
-    if (dateStr !== todayStr) {
-      label.classList.add('stale');
-      label.textContent += ' ⚠️ Not updated today';
-    } else {
-      label.classList.remove('stale');
-    }
-
-    var display = document.getElementById('menu-display');
-    if (!saved.items || saved.items.length === 0) {
-      display.innerHTML = '<p class="menu-empty">No items set for this menu.</p>';
-    } else {
-      display.innerHTML = '<div class="menu-items-list">' +
-        saved.items.map(function(item) {
-          return '<div class="menu-item-chip"><span class="menu-item-name">' + item.name + '</span>' +
-                 (item.price ? '<span class="menu-item-price">J$ ' + item.price + '</span>' : '') + '</div>';
-        }).join('') + '</div>';
-    }
-
-    var noteDisplay = document.getElementById('menu-note-display');
-    if (saved.note && saved.note.trim()) {
-      noteDisplay.innerHTML = '<div class="menu-note">' + saved.note + '</div>';
-    } else {
-      noteDisplay.innerHTML = '';
-    }
-  }
-
-  function formatDate(dateStr) {
-    if (!dateStr) return 'No date set';
-    var d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  }
-
-  function openMenuEditor() {
-    if (menuUnlocked) {
-      toggleEditor();
-      return;
-    }
-    // Ask for menu password
-    pendingMenuAction = true;
-    document.getElementById('pw-title').textContent = '📋 Menu Editor';
-    document.getElementById('pw-desc').textContent  = 'Enter the password to edit today\'s menu.';
-    document.getElementById('pw-input').value = '';
-    document.getElementById('pw-error').textContent = '';
-    document.getElementById('pw-overlay').classList.add('show');
-    setTimeout(function(){ document.getElementById('pw-input').focus(); }, 150);
-  }
-
-  var pendingMenuAction = false;
-
-  function toggleEditor() {
-    var editor = document.getElementById('menu-editor');
-    var isOpen = editor.classList.contains('open');
-    if (!isOpen) {
-      document.getElementById('menu-date-input').value = today;
-      document.getElementById('menu-rows').innerHTML = '';
-      menuRowCounter = 0;
-      // Load current menu from Sheet to pre-populate editor
-      fetch(SCRIPT_URL + '?action=getMenu')
-        .then(function(r) { return r.json(); })
-        .then(function(res) {
-          if (res.result === 'success' && res.menu && res.menu.items) {
-            res.menu.items.forEach(function(item) { addMenuRow(item.name, item.price); });
-            document.getElementById('menu-note-input').value = res.menu.note || '';
-            // Set date
-            var dateStr = res.menu.date;
-            if (dateStr) document.getElementById('menu-date-input').value = dateStr;
-          } else {
-            addMenuRow();
-          }
-        })
-        .catch(function() { addMenuRow(); });
-      document.getElementById('menu-note-input').value = '';
-      editor.classList.add('open');
-    } else {
-      editor.classList.remove('open');
-    }
-  }
-
-  function addMenuRow(selectedName, selectedPrice) {
-    menuRowCounter++;
-    var id  = 'menu-row-' + menuRowCounter;
-    var div = document.createElement('div');
-    div.className = 'menu-row';
-    div.id = id;
-    var allMenuTypes = (LUNCH_TYPES_CLASS || []).concat(
-      (LUNCH_TYPES_OFFICE || []).filter(function(o){
-        return !(LUNCH_TYPES_CLASS || []).some(function(c){ return c.name === o.name; });
-      })
-    );
-    var opts = '<option value="">— Select item —</option>' +
-      allMenuTypes.map(function(t) {
-        var escaped = t.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-        return '<option value="' + escaped + '"' + (t.name === selectedName ? ' selected' : '') + '>' + t.name + '</option>';
-      }).join('');
-    var sel = document.createElement('select');
-    sel.innerHTML = opts;
-    var priceInput = document.createElement('input');
-    priceInput.type = 'text';
-    priceInput.placeholder = 'Price (e.g. 250)';
-    priceInput.value = selectedPrice || '';
-    if (selectedPrice) {
-      priceInput.readOnly = true;
-      priceInput.style.background = 'var(--bg)';
-      priceInput.style.cursor = 'default';
-    }
-    sel.onchange = function() {
-      var name = this.value;
-      if (!name) { priceInput.value = ''; priceInput.readOnly = false; priceInput.style.background = ''; return; }
-      var norm = function(s){ return s.toLowerCase().trim().replace(/\s+/g,' '); };
-      var match = null;
-      var freshTypes = (LUNCH_TYPES_CLASS || []).concat(
-        (LUNCH_TYPES_OFFICE || []).filter(function(o){
-          return !(LUNCH_TYPES_CLASS||[]).some(function(c){ return norm(c.name)===norm(o.name); });
-        })
-      );
-      freshTypes.forEach(function(t){ if (norm(t.name) === norm(name)) match = t.price; });
-      console.log('Menu lookup:', name, '| match:', match, '| freshTypes:', JSON.stringify(freshTypes.map(function(t){return t.name;})));
-      if (match) {
-        priceInput.value = match;
-        priceInput.readOnly = true;
-        priceInput.style.background = 'var(--bg)';
-        priceInput.style.cursor = 'default';
-      } else {
-        priceInput.value = '';
-        priceInput.readOnly = false;
-        priceInput.style.background = '';
+    if (newLen <= oldLen) {
+      sheet.getRange(oldStart, 1, newLen, 11).setValues(newOrderRows);
+      if (newLen < oldLen) {
+        var leftover = sheet.getRange(oldStart + newLen, 1, oldLen - newLen, 10);
+        leftover.clearContent();
+        leftover.setBackground('#FFFFFF').setFontColor('#000000');
       }
-    };
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'btn-remove';
-    removeBtn.textContent = '✕';
-    removeBtn.onclick = function() { document.getElementById(id).remove(); };
-    div.appendChild(sel);
-    div.appendChild(priceInput);
-    div.appendChild(removeBtn);
-    document.getElementById('menu-rows').appendChild(div);
+    } else {
+      sheet.insertRowsBefore(oldStart + oldLen, newLen - oldLen);
+      sheet.getRange(oldStart, 1, newLen, 11).setValues(newOrderRows);
+    }
+
+    _applyOrderFormat(sheet, oldStart, newLen);
+    sheet.getRange(oldStart, 10).setDataValidation(validationRule);
+    if (newLen > 1) sheet.getRange(oldStart + 1, 10, newLen - 1, 1).clearDataValidations();
+    sheet.getRange(oldStart, 11).setDataValidation(paymentRule);
+    if (newLen > 1) sheet.getRange(oldStart + 1, 11, newLen - 1, 1).clearDataValidations();
+    _recalcGradeTotals(sheet, gradeGroup);
+    setupConditionalFormatting(sheet);
+    return;
   }
 
-  function saveMenu() {
-    var date  = document.getElementById('menu-date-input').value;
-    var note  = document.getElementById('menu-note-input').value.trim();
-    var items = [];
-    document.getElementById('menu-rows').querySelectorAll('.menu-row').forEach(function(row) {
-      var sel   = row.querySelector('select').value;
-      var price = row.querySelector('input[type="text"]').value.trim();
-      if (sel) items.push({ name: sel, price: price });
-    });
-    var errEl = document.getElementById('menu-save-error');
-    errEl.style.display = 'none';
-    if (!date) {
-      errEl.textContent = 'Please set a date for the menu.';
-      errEl.style.display = 'block';
-      return;
-    }
-    if (items.length === 0) {
-      errEl.textContent = 'Please add at least one menu item.';
-      errEl.style.display = 'block';
-      return;
-    }
-    errEl.style.display = 'none';
+  var gradeInfo = gradeMap[gradeGroup];
 
-    var saveBtn = document.querySelector('.menu-save-btn');
-    saveBtn.textContent = 'Saving…';
-    saveBtn.disabled = true;
+  if (!gradeInfo || !gradeInfo.totalsSheetRow) {
+    var insertPoint = _findInsertPointForGrade(gradeGroup, gradeMap, sheet);
+    if (insertPoint < 0) {
+      var appendAt = sheet.getLastRow() + 1;
+      _writeGradeBlock(sheet, appendAt, newOrderRows, gradeGroup, validationRule, paymentRule);
+    } else {
+      var blockSize = newOrderRows.length + 2;
+      sheet.insertRowsBefore(insertPoint, blockSize);
+      _writeGradeBlock(sheet, insertPoint, newOrderRows, gradeGroup, validationRule, paymentRule);
+    }
+  } else {
+    var insertBefore = gradeInfo.totalsSheetRow;
+    var rowsToInsert = newOrderRows.length + 1;
+    sheet.insertRowsBefore(insertBefore, rowsToInsert);
 
-    var data = { action: 'saveMenu', date: date, items: items, note: note };
-    fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } })
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result === 'success') {
-          loadMenuDisplay();
-          document.getElementById('menu-editor').classList.remove('open');
-        } else {
-          document.getElementById('menu-save-error').textContent = 'Error saving menu. Please try again.'; document.getElementById('menu-save-error').style.display = 'block';
-        }
-        saveBtn.textContent = 'Save Menu';
-        saveBtn.disabled = false;
-      })
-      .catch(function(err) {
-        document.getElementById('menu-save-error').textContent = 'Error saving menu. Please try again.'; document.getElementById('menu-save-error').style.display = 'block';
-        saveBtn.textContent = 'Save Menu';
-        saveBtn.disabled = false;
-        console.error(err);
+    sheet.getRange(insertBefore, 1, newOrderRows.length, 11).setValues(newOrderRows);
+    _applyOrderFormat(sheet, insertBefore, newOrderRows.length);
+    sheet.getRange(insertBefore, 10).setDataValidation(validationRule);
+    if (newOrderRows.length > 1) {
+      sheet.getRange(insertBefore + 1, 10, newOrderRows.length - 1, 1).clearDataValidations();
+    }
+    sheet.getRange(insertBefore, 11).setDataValidation(paymentRule);
+    if (newOrderRows.length > 1) {
+      sheet.getRange(insertBefore + 1, 11, newOrderRows.length - 1, 1).clearDataValidations();
+    }
+    _clearWhiteRow(sheet, insertBefore + newOrderRows.length);
+    _recalcGradeTotals(sheet, gradeGroup);
+  }
+
+  setupConditionalFormatting(sheet);
+  setColumnWidths(sheet);
+}
+
+function _writeGradeBlock(sheet, startRow, newOrderRows, gradeGroup, validationRule, paymentRule) {
+  sheet.getRange(startRow, 1, newOrderRows.length, 11).setValues(newOrderRows);
+  _applyOrderFormat(sheet, startRow, newOrderRows.length);
+  sheet.getRange(startRow, 10).setDataValidation(validationRule);
+  if (newOrderRows.length > 1) {
+    sheet.getRange(startRow + 1, 10, newOrderRows.length - 1, 1).clearDataValidations();
+  }
+  sheet.getRange(startRow, 11).setDataValidation(paymentRule);
+  if (newOrderRows.length > 1) {
+    sheet.getRange(startRow + 1, 11, newOrderRows.length - 1, 1).clearDataValidations();
+  }
+  _clearWhiteRow(sheet, startRow + newOrderRows.length);
+  var totalsRow = startRow + newOrderRows.length + 1;
+  _recalcGradeTotalsFromRows(sheet, totalsRow, gradeGroup, newOrderRows);
+}
+
+function _findInsertPointForGrade(gradeGroup, gradeMap, sheet) {
+  var myIdx = GRADE_ORDER.indexOf(gradeGroup);
+  if (myIdx < 0) return -1;
+  for (var k = myIdx + 1; k < GRADE_ORDER.length; k++) {
+    var nextGrade = GRADE_ORDER[k];
+    if (gradeMap[nextGrade] && gradeMap[nextGrade].totalsSheetRow) {
+      return _findFirstRowOfGrade(sheet, nextGrade, gradeMap[nextGrade].totalsSheetRow);
+    }
+  }
+  return -1;
+}
+
+function _findFirstRowOfGrade(sheet, grade, totalsSheetRow) {
+  var dataRows = totalsSheetRow - 2;
+  if (dataRows < 1) return totalsSheetRow;
+  var vals = sheet.getRange(2, 1, dataRows, 10).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    var a0   = String(vals[i][0]).trim();
+    var col9 = String(vals[i][8]).trim();
+    if (a0 !== '' && a0 !== 'TOTALS' && col9 === grade) return i + 2;
+  }
+  return totalsSheetRow - 1;
+}
+
+function _recalcGradeTotals(sheet, grade) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var vals = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+
+  var productTotals = {}, productOrder = [], gradeSubtotal = 0;
+  var totalsSheetRow = -1;
+  var inGrade = false;
+
+  for (var i = 0; i < vals.length; i++) {
+    var a0   = String(vals[i][0]).trim();
+    var col1 = String(vals[i][1]).trim();
+    var col3 = String(vals[i][3]).trim();
+    var col9 = String(vals[i][8]).trim();
+
+    if (a0 === 'TOTALS') {
+      if (col1 === grade) { totalsSheetRow = i + 2; break; }
+      inGrade = false;
+      continue;
+    }
+
+    if (a0 !== '') {
+      inGrade = (col9 === grade || col1 === grade);
+      if (String(vals[i][9]).trim() === 'Cancelled') { inGrade = false; }
+    }
+
+    if (!inGrade || !col3 || col3 === ' ') continue;
+
+    var amt = parseFloat(vals[i][4]) || 0;
+    var sub = parseFloat(vals[i][6]) || 0;
+    if (!productTotals[col3]) { productTotals[col3] = 0; productOrder.push(col3); }
+    productTotals[col3] += amt;
+    gradeSubtotal       += sub;
+  }
+
+  if (totalsSheetRow < 0) return;
+
+  var line = productOrder.map(function(p) { return p + ': ' + productTotals[p]; }).join('  |  ');
+  _writeTotalsRow(sheet, totalsSheetRow, grade, line, gradeSubtotal);
+}
+
+function _recalcGradeTotalsFromRows(sheet, totalsSheetRow, grade, newOrderRows) {
+  var productTotals = {}, productOrder = [], gradeSubtotal = 0;
+  newOrderRows.forEach(function(r) {
+    var prod = String(r[3]).trim();
+    var amt  = parseFloat(r[4]) || 0;
+    var sub  = parseFloat(r[6]) || 0;
+    if (prod && prod !== ' ') {
+      if (!productTotals[prod]) { productTotals[prod] = 0; productOrder.push(prod); }
+      productTotals[prod] += amt;
+      gradeSubtotal       += sub;
+    }
+  });
+  var line = productOrder.map(function(p) { return p + ': ' + productTotals[p]; }).join('  |  ');
+  _writeTotalsRow(sheet, totalsSheetRow, grade, line, gradeSubtotal);
+}
+
+function _writeTotalsRow(sheet, totalsSheetRow, grade, line, total) {
+  sheet.getRange(totalsSheetRow, 1, 1, 10)
+    .setValues([['TOTALS', grade, '', line || '', '', '', '', total || 0, '', '']]);
+  sheet.getRange(totalsSheetRow, 1, 1, 8)
+    .setBackground('#1A2E6B').setFontColor('#FFFFFF');
+  sheet.getRange(totalsSheetRow, 9, 1, 2)
+    .setBackground('#FFFFFF').setFontColor('#000000')
+    .clearDataValidations();
+  var mergeRange = sheet.getRange(totalsSheetRow, 4, 1, 4);
+  try { mergeRange.mergeAcross(); } catch(e) {}
+  mergeRange.setHorizontalAlignment('left').setWrap(true);
+  sheet.getRange(totalsSheetRow, 8, 1, 1)
+    .setHorizontalAlignment('right').setNumberFormat('#,##0');
+}
+
+function _applyOrderFormat(sheet, startRow, numRows) {
+  sheet.getRange(startRow, 1, numRows, 10)
+    .setBackground('#FFFFFF').setFontColor('#000000');
+  sheet.getRange(startRow, 5, numRows, 4)
+    .setHorizontalAlignment('right').setNumberFormat('#,##0');
+  sheet.getRange(startRow, 1, numRows, 4).setHorizontalAlignment('left');
+  sheet.getRange(startRow, 9, numRows, 2).setHorizontalAlignment('left');
+  sheet.getRange(startRow, 10, numRows, 1).clearDataValidations();
+}
+
+function _clearWhiteRow(sheet, rowNum) {
+  var r = sheet.getRange(rowNum, 1, 1, 10);
+  r.clearContent();
+  r.clearDataValidations();
+  r.setBackground('#FFFFFF').setFontColor('#000000');
+  r.setHorizontalAlignment('left');
+}
+
+function _ensureHeaders(sheet) {
+  if (sheet.getLastRow() > 0) return;
+  var h = ['Timestamp','Date','Class','Product','Amount','Price (J$)','Subtotal (J$)','Order Total (J$)','GradeTag','Status','Payment'];
+  sheet.appendRow(h);
+  sheet.getRange(1, 1, 1, h.length)
+    .setBackground('#1A2E6B').setFontColor('#FFFFFF').setFontWeight('bold');
+  sheet.setFrozenRows(1);
+  setColumnWidths(sheet);
+}
+
+function setupConditionalFormatting(sheet) {
+  if (!sheet || sheet.getMaxRows() <= 1) return;
+  var colIndex  = 10;
+  var range     = sheet.getRange(2, colIndex, sheet.getMaxRows() - 1, 1);
+  var rules = [
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=OR($J2="Pending",$J2="Incomplete")')
+      .setBackground('#FF0000').setFontColor('#FFFFFF').setRanges([range]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Served')
+      .setBackground('#00FF00').setFontColor('#000000').setRanges([range]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Pick up')
+      .setBackground('#FFFF00').setFontColor('#000000').setRanges([range]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Updated')
+      .setBackground('#FF0000').setFontColor('#FFFFFF').setRanges([range]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Cancelled')
+      .setBackground('#FF8C00').setFontColor('#FFFFFF').setRanges([range]).build()
+  ];
+  // Col K (11) = Payment
+  var rangeK = sheet.getRange(2, 11, sheet.getMaxRows() - 1, 1);
+  var rulesK = [
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Paid')
+      .setBackground('#00FF00').setFontColor('#000000').setRanges([rangeK]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo('Not paid')
+      .setBackground('#FF0000').setFontColor('#FFFFFF').setRanges([rangeK]).build()
+  ];
+  sheet.setConditionalFormatRules(rules.concat(rulesK));
+}
+
+function setColumnWidths(sheet) {
+  TUCKSHOP_WIDTHS.forEach(function(w, i) {
+    if (i < sheet.getMaxColumns()) sheet.setColumnWidth(i + 1, w);
+  });
+}
+
+function clearDailyTuckshopOrders() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  _saveTuckshopDailyHistory(ss);
+  var sheet = ss.getSheetByName('Tuckshop');
+  if (!sheet) return;
+  var maxRows = sheet.getMaxRows();
+  if (maxRows > 1) sheet.getRange(2, 1, maxRows - 1, 10)
+    .clear({contentsOnly:true, formatOnly:true, validationsOnly:true});
+  setColumnWidths(sheet);
+}
+
+function _saveTuckshopDailyHistory(ss) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
+  var date = Utilities.formatDate(new Date(), 'America/Jamaica', 'yyyy-MM-dd');
+  var products = {}, grandTotal = 0;
+
+  var sheet = ss.getSheetByName('Tuckshop');
+  if (sheet && sheet.getLastRow() > 1) {
+    var vals = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]).trim() !== 'TOTALS') continue;
+      grandTotal += parseFloat(vals[i][7]) || 0;
+      // Product line is in col D (index 3)
+      var line = String(vals[i][3]).trim();
+      if (!line) continue;
+      line.split('|').forEach(function(part) {
+        part = part.trim();
+        var m = part.match(/^(.+):\s*(\d+)$/);
+        if (!m) return;
+        var name = m[1].trim(), qty = parseInt(m[2]) || 0;
+        products[name] = (products[name] || 0) + qty;
       });
-  }
-
-
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx45OkW-9QXuWs6wQF8GZiHh-v8kBX0OxN7qBvynGJ72JIK80f91GYzeK0CbFp3knBp/exec";
-
-  var LUNCH_TYPES_CLASS  = [];
-  var LUNCH_TYPES_OFFICE = [];
-  // PRICES kept as fallback but auto-filled from GS
-  const PRICES = [50,100,150,200,250,300,350,400,450,500,550,600,650,700,750];
-
-  var appUnlocked = false;
-  var officeUnlocked = false;
-  var adminUnlocked = false;
-
-  // Use Jamaica timezone (UTC-5) for today's date
-  function getJamaicaToday() {
-    var d = new Date();
-    var jamaicaOffset = -5 * 60; // UTC-5
-    var utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-    var jamaica = new Date(utc + (jamaicaOffset * 60000));
-    return jamaica.getFullYear() + '-' +
-      String(jamaica.getMonth()+1).padStart(2,'0') + '-' +
-      String(jamaica.getDate()).padStart(2,'0');
-  }
-  const today = getJamaicaToday();
-
-  // Check if Classes orders are locked based on Jamaica time and selected class
-  function getJamaicaHourMinute() {
-    var d = new Date();
-    var utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-    var jamaica = new Date(utc + (-5 * 60 * 60000));
-    return { h: jamaica.getHours(), m: jamaica.getMinutes() };
-  }
-
-  function isInfantClass(cls) {
-    return cls === 'Infant 1H' || cls === 'Infant 1T' || cls === 'Infant 2L' || cls === 'Infant 2K';
-  }
-
-  var devOverride = false;
-  var devOverrideTuckshop = false;
-
-  function isTuckshopWindowOpen() {
-    if (devOverrideTuckshop) return true;
-    if (!tuckshopDate || tuckshopDate !== getJamaicaToday()) return false;
-    var t = getJamaicaHourMinute();
-    var mins = t.h * 60 + t.m;
-    return mins >= (7 * 60 + 30) && mins < (9 * 60 + 30);
-  }
-
-  function applyTuckshopTimeLock() {
-    var open      = isTuckshopWindowOpen();
-    var lockMsg   = document.getElementById('tuckshop-lock-msg');
-    var submitBtn = document.querySelector('#tuckshopForm button[type="submit"]');
-    var addRowBtn = document.querySelector('#tab-tuckshop .btn-add-row');
-    var editBtn   = document.querySelector('#tab-tuckshop .edit-order-btn');
-    var lockText  = document.getElementById('tuckshop-lock-text');
-    var tDateEl   = document.getElementById('t-date');
-    if (tDateEl) tDateEl.value = getJamaicaToday();
-    if (!open) {
-      var inWindow = (function(){ var t = getJamaicaHourMinute(); var m = t.h*60+t.m; return m >= (7*60+30) && m < (9*60+30); })();
-      if (lockMsg)   lockMsg.style.display = 'block';
-      if (lockText)  lockText.textContent = (inWindow && (!tuckshopDate || tuckshopDate !== getJamaicaToday()))
-        ? '⚠️ Tuckshop menu is not updated for today. Please update the menu to enable orders.'
-        : '🔒 Tuckshop orders accepted 7:30 AM – 9:30 AM only.';
-      if (submitBtn) { submitBtn.disabled = true;  submitBtn.style.background = '#8f9dc7'; }
-      if (addRowBtn) addRowBtn.disabled = true;
-      if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
-    } else {
-      if (lockMsg)   lockMsg.style.display = 'none';
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.style.background = ''; }
-      if (addRowBtn) addRowBtn.disabled = false;
-      if (editBtn)   { editBtn.disabled = false; editBtn.style.opacity = ''; editBtn.style.cursor = ''; }
     }
   }
 
-  function toggleDevOverrideTuckshop() {
-    devOverrideTuckshop = !devOverrideTuckshop;
-    var btn = document.getElementById('dev-override-tuckshop-btn');
-    if (devOverrideTuckshop) {
-      btn.textContent = '🔒 Disable Tuckshop override (active)';
-      btn.style.background  = '#e8f5ee';
-      btn.style.borderColor = 'var(--green)';
-      btn.style.color       = 'var(--green)';
-    } else {
-      btn.textContent = '🔓 Enable Tuckshop (bypass time lock)';
-      btn.style.background  = '';
-      btn.style.borderColor = 'var(--border)';
-      btn.style.color       = 'var(--muted)';
-    }
-    applyTuckshopTimeLock();
+  if (grandTotal === 0) return;
+
+  var hist = ss.getSheetByName('TuckshopHistory');
+  if (!hist) {
+    hist = ss.insertSheet('TuckshopHistory');
+    hist.appendRow(['Date','GrandTotal','ProductBreakdown']);
+    hist.getRange(1,1,1,3).setBackground('#1A2E6B').setFontColor('#FFFFFF').setFontWeight('bold');
+    hist.setFrozenRows(1);
+    hist.setColumnWidth(1,110); hist.setColumnWidth(2,130); hist.setColumnWidth(3,500);
   }
+  hist.appendRow([date, grandTotal, JSON.stringify(products)]);
+}
 
-  function isClassWindowOpen(cls) {
-    if (devOverride) return true;
-    var t = getJamaicaHourMinute();
-    var mins = t.h * 60 + t.m;
-    var open  = 7 * 60 + 30;
-    var close = isInfantClass(cls) ? (9 * 60 + 30) : (9 * 60);
-    return mins >= open && mins < close;
-  }
-
-  function toggleDevOverride() {
-    devOverride = !devOverride;
-    var btn = document.getElementById('dev-override-btn');
-    if (devOverride) {
-      btn.textContent = '🔒 Disable Classes override (active)';
-      btn.style.background    = '#e8f5ee';
-      btn.style.borderColor   = 'var(--green)';
-      btn.style.color         = 'var(--green)';
-    } else {
-      btn.textContent = '🔓 Enable Classes (bypass time lock)';
-      btn.style.background  = '';
-      btn.style.borderColor = 'var(--border)';
-      btn.style.color       = 'var(--muted)';
-    }
-    applyClassesLock();
-  }
-
-  function applyClassesLock() {
-    var cls       = document.getElementById('c-class').value;
-    var open      = isClassWindowOpen(cls);
-    var lockMsg      = document.getElementById('c-lock-msg');
-    var lockText     = document.getElementById('c-lock-text');
-    var submitBtn    = document.querySelector('#classForm button[type="submit"]');
-    var addBtn       = document.querySelector('#tab-classes .btn-add-row');
-    var editCanteBtn = document.getElementById('c-edit-canteen-btn');
-    if (!open) {
-      var closeTime = isInfantClass(cls) ? '9:30 AM' : '9:00 AM';
-      lockText.textContent = cls === ''
-        ? 'Orders accepted 7:30 AM – 9:00 AM (Infant classes until 9:30 AM).'
-        : isInfantClass(cls)
-          ? 'Infant orders accepted 7:30 AM – 9:30 AM only.'
-          : 'Class orders accepted 7:30 AM – 9:00 AM only.';
-      if (lockMsg)      lockMsg.style.display   = 'block';
-      if (submitBtn)    { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
-      if (addBtn)       addBtn.disabled = true;
-      if (editCanteBtn) { editCanteBtn.disabled = true; editCanteBtn.style.opacity = '0.4'; editCanteBtn.style.cursor = 'not-allowed'; }
-    } else {
-      if (lockMsg)      lockMsg.style.display   = 'none';
-      if (submitBtn)    { submitBtn.disabled = false; submitBtn.style.background = ''; }
-      if (addBtn)       addBtn.disabled = false;
-      if (editCanteBtn) { editCanteBtn.disabled = false; editCanteBtn.style.opacity = ''; editCanteBtn.style.cursor = ''; }
-    }
-  }
-  document.getElementById('c-date').min = today;
-  document.getElementById('o-date').min = today;
-  document.getElementById('c-date').value = today;
-  document.getElementById('o-date').value = today;
-  document.getElementById('c-class').addEventListener('change', applyClassesLock);
-
-  // ── PASSWORD ──
-  var pendingTab = null;
-
-  var tuckshopUnlocked = false;
-
-  function switchTab(tab) {
-    if (!appUnlocked) {
-      pendingTab = tab;
-      showModal('🍽️ Lunch Order System', 'Enter the password to access the lunch order system.');
-      return;
-    }
-    if (tab === 'office' && !officeUnlocked) {
-      pendingTab = tab;
-      showModal('🏢 Office Access', 'Enter the Office password to continue.');
-      return;
-    }
-    if (tab === 'admin' && !adminUnlocked) {
-      pendingTab = tab;
-      showModal('🛠️ Admin Access', 'Enter the Admin password to continue.');
-      return;
-    }
-    // Tuckshop tab is open — no password needed to enter
-    activateTab(tab);
-  }
-
-  function showModal(title, desc) {
-    document.getElementById('pw-title').textContent = title;
-    document.getElementById('pw-desc').textContent  = desc;
-    document.getElementById('pw-input').value = '';
-    document.getElementById('pw-error').textContent = '';
-    document.getElementById('pw-overlay').classList.add('show');
-    setTimeout(function(){ document.getElementById('pw-input').focus(); }, 150);
-  }
-
-  var pendingTuckshopEdit = false;
-
-  function checkPw() {
-    var entered = document.getElementById('pw-input').value;
-    var correct = false;
-    var action  = '';
-
-    if (pendingMenuAction) {
-      if (entered === 'menu2026') { menuUnlocked = true; correct = true; action = 'menu'; }
-    } else if (pendingTuckshopEdit) {
-      if (!appUnlocked) {
-        if (entered === PW_GENERAL) { appUnlocked = true; correct = true; action = 'tuckshop_step1'; }
-      } else {
-        if (entered === PW_TUCKSHOP_EDIT) { correct = true; action = 'tuckshop_edit'; }
-      }
-    } else if (!appUnlocked) {
-      if (entered === PW_GENERAL) { appUnlocked = true; correct = true; action = 'unlock'; }
-    } else if (pendingTab === 'office') {
-      if (entered === PW_OFFICE) { officeUnlocked = true; correct = true; action = 'office'; }
-    } else if (pendingTab === 'admin') {
-      if (entered === PW_ADMIN) { adminUnlocked = true; correct = true; action = 'admin'; }
-    }
-
-    if (correct) {
-      document.getElementById('pw-overlay').classList.remove('show');
-      if (action === 'menu') {
-        pendingMenuAction = false;
-        toggleEditor();
-      } else if (action === 'tuckshop_edit') {
-        pendingTuckshopEdit = false;
-        document.getElementById('tuckshop-editor').classList.add('open');
-        loadTuckshopEditor();
-      } else if (action === 'tuckshop_step1') {
-        // App unlocked, now ask for tuckshop edit password
-        showModal('🔒 Tuckshop Editor', 'Enter the Tuckshop editor password.');
-      } else {
-        activateTab(pendingTab);
-        pendingTab = null;
-      }
-    } else {
-      document.getElementById('pw-error').textContent = 'Incorrect password. Try again.';
-      document.getElementById('pw-input').value = '';
-      document.getElementById('pw-input').focus();
-    }
-  }
-
-  function closePw() {
-    document.getElementById('pw-overlay').classList.remove('show');
-    pendingTab = null;
-  }
-
-  function activateTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(function(b, i) {
-      b.classList.toggle('active',
-        (i === 0 && tab === 'classes') ||
-        (i === 1 && tab === 'office')  ||
-        (i === 2 && tab === 'tuckshop') ||
-        (i === 3 && tab === 'admin')
-      );
-    });
-    document.getElementById('tab-classes').classList.toggle('active',   tab === 'classes');
-    document.getElementById('tab-office').classList.toggle('active',    tab === 'office');
-    document.getElementById('tab-tuckshop').classList.toggle('active',  tab === 'tuckshop');
-    document.getElementById('tab-admin').classList.toggle('active',     tab === 'admin');
-    if (tab === 'office') {
-      loadOfficeNames();
-      loadSalesSummary();
-      loadSalesCharts();
-      document.getElementById('o-date').value = today;
-    }
-    if (tab === 'classes') {
-      document.getElementById('c-date').value = today;
-    }
-    if (tab === 'tuckshop') {
-      tuckshopInitialized = true;
-      loadTuckshopProducts();
-      document.getElementById('t-date').value = today;
-      if (!document.getElementById('t-items').children.length) {
-        addTuckshopOrderRow();
-      }
-    }
-    if (tab === 'admin') {
-      loadAdminPanel();
-    }
-  }
-
-  // ── ROWS ──
-  var rowCounter = 0;
-
-  function lunchOptions(prefix) {
-    var types = LUNCH_TYPES_CLASS; // both classes and office use same admin list
-    return '<option value="">— Select —</option>' + types.map(function(t) {
-      return '<option value="' + (t.price || '') + '">' + t.name + '</option>';
-    }).join('');
-  }
-
-  function priceOptions() {
-    return '<option value="">— Price —</option>' + PRICES.map(function(p){ return '<option>' + p + '</option>'; }).join('');
-  }
-
-  function _lockPriceSel(priceSel) {
-    priceSel.style.pointerEvents = 'none';
-    priceSel.style.background    = 'var(--bg)';
-    priceSel.style.color         = 'var(--text)';
-    priceSel.style.cursor        = 'default';
-    priceSel.style.borderColor   = 'var(--border)';
-  }
-
-  function addRow(prefix) {
-    rowCounter++;
-    var id  = prefix + '-row-' + rowCounter;
-    var div = document.createElement('div');
-    div.className = 'item-row';
-    div.id = id;
-    var lunchSel = document.createElement('select');
-    lunchSel.innerHTML = lunchOptions(prefix);
-    var priceSel = document.createElement('select');
-    priceSel.innerHTML = priceOptions();
-    var menuWarn = document.createElement('span');
-    menuWarn.style.cssText = 'display:none;color:#CC0000;font-size:0.78rem;grid-column:1/-1;';
-    menuWarn.textContent = "⚠️ Not available in today’s menu";
-    lunchSel.onchange = function() {
-      if (this.value) {
-        if ((prefix === 'c' || prefix === 'o') && todayMenuItems.length > 0) {
-          var sel = this.options[this.selectedIndex].text.toLowerCase().trim();
-          var ok  = todayMenuItems.some(function(m){ return m === sel || sel.indexOf(m) !== -1 || m.indexOf(sel) !== -1; });
-          if (!ok) {
-            menuWarn.style.display = 'block';
-            priceSel.value = '';
-            priceSel.style.pointerEvents = '';
-            priceSel.style.background = '';
-            priceSel.style.cursor = '';
-            calcGrand(prefix);
-            return;
-          }
-        }
-        menuWarn.style.display = 'none';
-        var price = this.value;
-        // If price not in dropdown options, add it dynamically
-        if (price && !Array.from(priceSel.options).some(function(o){ return o.value == price; })) {
-          var opt = document.createElement('option');
-          opt.value = price; opt.text = price;
-          priceSel.appendChild(opt);
-        }
-        priceSel.value = price;
-        _lockPriceSel(priceSel);
-      } else {
-        menuWarn.style.display = 'none';
-        priceSel.value = '';
-        priceSel.style.pointerEvents = '';
-        priceSel.style.background = '';
-        priceSel.style.cursor = '';
-      }
-      calcGrand(prefix);
-    };
-    priceSel.onchange = function() { calcGrand(prefix); };
-    var amtInput = document.createElement('input');
-    amtInput.type = 'number'; amtInput.min = '1'; amtInput.max = '999';
-    amtInput.placeholder = '0';
-    amtInput.oninput = function() { calcGrand(prefix); };
-    var subtotal = document.createElement('span');
-    subtotal.className = 'item-total'; subtotal.textContent = 'J$ 0';
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button'; removeBtn.className = 'btn-remove';
-    removeBtn.textContent = '✕';
-    removeBtn.onclick = function() { document.getElementById(id).remove(); calcGrand(prefix); };
-    div.appendChild(lunchSel); div.appendChild(amtInput);
-    div.appendChild(priceSel); div.appendChild(subtotal); div.appendChild(removeBtn);
-    div.appendChild(menuWarn);
-    document.getElementById(prefix + '-items').appendChild(div);
-  }
-
-  function removeRow(id, prefix) {
-    var el = document.getElementById(id);
-    if (el) { el.remove(); }
-    calcGrand(prefix);
-  }
-
-  function calcGrand(prefix) {
-    var grand = 0;
-    document.getElementById(prefix + '-items').querySelectorAll('.item-row').forEach(function(row) {
-      var selects = row.querySelectorAll('select');
-      var input   = row.querySelector('input');
-      var amt   = parseFloat(input.value)      || 0;
-      var price = parseFloat(selects[1].value) || 0;
-      var sub   = amt * price;
-      grand += sub;
-      row.querySelector('.item-total').textContent = 'J$ ' + sub.toLocaleString('en-JM');
-    });
-    document.getElementById(prefix + '-grand-total').textContent = 'J$ ' + grand.toLocaleString('en-JM', { minimumFractionDigits: 2 });
-  }
-
-  function getRows(prefix) {
-    var rows  = [];
-    var valid = true;
-    document.getElementById(prefix + '-items').querySelectorAll('.item-row').forEach(function(row) {
-      var selects   = row.querySelectorAll('select');
-      var input     = row.querySelector('input');
-      var lunchSel  = selects[0];
-      var priceSel  = selects[1];
-      var lunchType = lunchSel.selectedIndex > 0 ? lunchSel.options[lunchSel.selectedIndex].text : '';
-      var amt       = parseFloat(input.value)      || 0;
-      var price     = parseFloat(priceSel.value) || 0;
-      // Highlight missing fields
-      lunchSel.style.borderColor  = lunchType        ? '' : '#B22234';
-      input.style.borderColor     = amt > 0          ? '' : '#B22234';
-      priceSel.style.borderColor  = price > 0        ? '' : '#B22234';
-      if (!lunchType || amt <= 0 || price <= 0) {
-        valid = false;
-      } else {
-        rows.push({ lunchType: lunchType, amount: amt, price: price, total: amt * price });
-      }
-    });
-    rows._valid = valid;
-    return rows;
-  }
-
-  // ── INIT rows (hidden until password entered) ──
-  addRow('c');
-  addRow('o');
-  addTuckshopOrderRow();
-
-  // ── SUBMIT ──
-  async function submitOrder(prefix, sheetTab, headerFields, headerKeys, btnText) {
-    var statusEl = document.getElementById(prefix + '-status');
-    var form     = document.getElementById(prefix === 'c' ? 'classForm' : 'officeForm');
-    var btn      = form.querySelector('button[type="submit"]');
-
-    statusEl.className     = 'status-msg';
-    statusEl.style.display = 'none';
-
-    // Validate header fields
-    var headersOk = true;
-    headerFields.forEach(function(id) {
-      var el = document.getElementById(id);
-      if (!el.value.trim()) { el.style.borderColor = '#B22234'; headersOk = false; }
-      else { el.style.borderColor = ''; }
-    });
-
-    // Validate item rows
-    var rows  = getRows(prefix);
-    var rowsOk = rows.length > 0 && rows._valid;
-
-    if (!headersOk || !rowsOk) {
-      statusEl.className     = 'status-msg error';
-      statusEl.textContent   = 'Please fill in all required fields and complete all lunch items.';
-      statusEl.style.display = 'block';
-      return;
-    }
-
-    var grandTotal = rows.reduce(function(s, r){ return s + r.total; }, 0);
-
-    // If no Sheet connected yet, just simulate success so form can be tested
-    if (SCRIPT_URL === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
-      showSuccess(statusEl, form, prefix, grandTotal);
-      return;
-    }
-
-    btn.disabled    = true;
-    btn.textContent = 'Submitting…';
-
-    var header = {};
-    headerFields.forEach(function(id, i) { header[headerKeys[i]] = document.getElementById(id).value.trim(); });
-    var data = Object.assign({ sheetTab: sheetTab, timestamp: new Date().toLocaleString('en-JM'), rows: rows, grandTotal: grandTotal }, header);
-
-    try {
-      var response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } });
-      var result   = await response.text();
-      if (result.includes('duplicate')) {
-        var parsed = JSON.parse(result);
-        statusEl.className     = 'status-msg error';
-        statusEl.innerHTML     = '⚠️ ' + parsed.message;
-        statusEl.style.display = 'block';
-        btn.disabled    = false;
-        btn.textContent = btnText;
-      } else if (result.includes('success')) {
-        showSuccess(statusEl, form, prefix, grandTotal);
-      } else { throw new Error(result); }
-    } catch(err) {
-      statusEl.className     = 'status-msg error';
-      statusEl.innerHTML     = '❌ Error submitting. Please try again.';
-      statusEl.style.display = 'block';
-      console.error(err);
-    }
-
-    btn.disabled    = false;
-    btn.textContent = btnText;
-  }
-
-  function showSuccess(statusEl, form, prefix, grandTotal) {
-    statusEl.className     = 'status-msg success';
-    statusEl.innerHTML     = '✅ Order submitted! Total: <strong>J$ ' + grandTotal.toLocaleString('en-JM') + '</strong>';
-    statusEl.style.display = 'block';
-    form.reset();
-    document.getElementById(prefix + '-date').value = today;
-    document.getElementById(prefix + '-items').innerHTML = '';
-    document.getElementById(prefix + '-grand-total').textContent = 'J$ 0.00';
-    addRow(prefix);
-    setTimeout(function() { statusEl.style.display = 'none'; }, 3000);
-  }
+function setupDailyTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'clearDailyTuckshopOrders') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('clearDailyTuckshopOrders')
+    .timeBased().atHour(0).everyDays(1).inTimezone('America/Jamaica').create();
+}
 
 
-  // ── EDIT ORDER ──
-  var editStartRow  = { c: null, o: null };
-  var editTimestamp = { c: null, o: null }; // ← guardar timestamp original de la orden
-  var editOriginalRows = { t: [] };         // ← guardar filas originales del tuckshop
 
-  function toggleEditPanel(prefix) {
-    var panel = document.getElementById(prefix + '-edit-panel');
-    panel.classList.toggle('open');
-    // Set date to today by default
-    var dateInput = document.getElementById(prefix + '-edit-date');
-    dateInput.value = today;
-  }
+function _json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
-  function findOrder(prefix) {
-    var date = document.getElementById(prefix + '-edit-date').value;
-    var key  = prefix === 'c'
-      ? document.getElementById('c-edit-class').value
-      : prefix === 't'
-        ? document.getElementById('t-edit-class').value
-        : document.getElementById('o-edit-name').value.trim();
+// ── onEdit: recalcular totals cuando status cambia en Tuckshop ──
+function onEdit(e) {
+  if (!e) return;
+  var sheet = e.range.getSheet();
+  if (sheet.getName() !== 'Tuckshop') return;
 
-    var resultEl  = document.getElementById(prefix + '-edit-result');
-    var msgEl     = document.getElementById(prefix + '-edit-msg');
-    var itemsEl   = document.getElementById(prefix + '-edit-items');
-    var addBtn    = document.getElementById(prefix + '-edit-add');
-    var totalBox  = document.getElementById(prefix + '-edit-total-box');
-    var updateBtn = document.getElementById(prefix + '-update-btn');
+  // Solo col J (10) = status
+  if (e.range.getColumn() !== 10) return;
 
-    if (!date || !key) {
-      msgEl.className = 'edit-msg notfound';
-      msgEl.textContent = (prefix === 'o') ? 'Please enter a name and date.' : 'Please select a class and date.';
-      resultEl.className = 'edit-result show';
-      addBtn.style.display = 'none';
-      totalBox.style.display = 'none';
-      updateBtn.style.display = 'none';
-      return;
-    }
+  var editedRow = e.range.getRow();
+  if (editedRow < 2) return;
 
-    msgEl.className = 'edit-msg found';
-    msgEl.textContent = 'Searching...';
-    resultEl.className = 'edit-result show';
+  var vals = sheet.getRange(editedRow, 1, 1, 10).getValues()[0];
+  var gradeTag = String(vals[8]).trim();
 
-    var scriptUrl = (prefix === 't') ? TUCKSHOP_SCRIPT_URL : SCRIPT_URL;
-    var sheetTab  = prefix === 'c' ? 'Classes' : prefix === 't' ? 'Tuckshop' : 'Office';
-    var url = scriptUrl + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) +
-              '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
-
-    fetch(url)
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result === 'notfound') {
-          msgEl.className = 'edit-msg notfound';
-          msgEl.textContent = 'No order found for this ' + (prefix === 'o' ? 'name' : 'class') + ' and date.';
-          itemsEl.innerHTML = '';
-          addBtn.style.display = 'none';
-          totalBox.style.display = 'none';
-          updateBtn.style.display = 'none';
-          editStartRow[prefix] = null;
-        } else {
-          msgEl.className = 'edit-msg found';
-          msgEl.textContent = 'Order found — edit below and click Update Order.';
-          editStartRow[prefix]  = res.startRow;
-          editTimestamp[prefix] = res.timestamp;
-          itemsEl.innerHTML = '';
-          if (prefix === 't') {
-            editOriginalRows['t'] = res.rows.slice(); // guardar filas originales
-            res.rows.forEach(function(row) { addTuckshopEditRow(row.product, row.amount, row.price); });
-            calcTuckshopEditGrand();
-          } else {
-            res.rows.forEach(function(row) { addEditRow(prefix, row.lunchType, row.amount, row.price); });
-            calcEditGrand(prefix);
-          }
-          addBtn.style.display = 'block';
-          totalBox.style.display = 'flex';
-          updateBtn.style.display = 'block';
-        }
-      })
-      .catch(function(err) {
-        msgEl.className = 'edit-msg notfound';
-        msgEl.textContent = 'Error searching. Please try again.';
-        console.error(err);
-      });
-  }
-
-  var tuckshopEditCounter = 0;
-  function addTuckshopEditRow(selectedProduct, selectedAmount, selectedPrice) {
-    tuckshopEditCounter++;
-    var id  = 't-erow-' + tuckshopEditCounter;
-    var div = document.createElement('div');
-    div.className = 'item-row';
-    div.id = id;
-    var opts = '<option value="">— Select —</option>' +
-      tuckshopProducts.map(function(p) {
-        return '<option value="' + p.price + '"' + (p.name === selectedProduct ? ' selected' : '') + '>' + p.name + '</option>';
-      }).join('');
-    var priceDisplay = document.createElement('input');
-    priceDisplay.type = 'text'; priceDisplay.readOnly = true;
-    priceDisplay.style.cssText = 'background:var(--bg);cursor:default;';
-    var sel = document.createElement('select');
-    sel.innerHTML = opts;
-    // Find the option that matches the product name and use its value (price)
-    var matchedPrice = '';
-    for (var i = 0; i < sel.options.length; i++) {
-      if (sel.options[i].text === selectedProduct) {
-        sel.selectedIndex = i;
-        matchedPrice = sel.options[i].value;
+  // Si fila secundaria, buscar hacia arriba
+  if (!gradeTag) {
+    for (var r = editedRow - 1; r >= 2; r--) {
+      var v = sheet.getRange(r, 1, 1, 10).getValues()[0];
+      if (String(v[0]).trim() !== '') {
+        gradeTag = String(v[8]).trim();
         break;
       }
     }
-    priceDisplay.value = matchedPrice ? 'J$ ' + matchedPrice : (selectedPrice ? 'J$ ' + selectedPrice : '');
-    sel.onchange = function() {
-      priceDisplay.value = this.value ? 'J$ ' + this.value : '';
-      calcTuckshopEditGrand();
-    };
-    var amtInput = document.createElement('input');
-    amtInput.type = 'number'; amtInput.min = '1'; amtInput.max = '999';
-    amtInput.placeholder = '0'; amtInput.value = selectedAmount || '';
-    amtInput.oninput = calcTuckshopEditGrand;
-    var subtotal = document.createElement('span');
-    subtotal.className = 'item-total'; subtotal.textContent = 'J$ 0';
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button'; removeBtn.className = 'btn-remove'; removeBtn.textContent = '✕';
-    removeBtn.onclick = function() { document.getElementById(id).remove(); calcTuckshopEditGrand(); };
-    div.appendChild(sel); div.appendChild(amtInput);
-    div.appendChild(priceDisplay); div.appendChild(subtotal); div.appendChild(removeBtn);
-    document.getElementById('t-edit-items').appendChild(div);
-    calcTuckshopEditGrand();
   }
 
-  function calcTuckshopEditGrand() {
-    var grand = 0;
-    var container = document.getElementById('t-edit-items');
-    if (!container) return;
-    container.querySelectorAll('.item-row').forEach(function(row) {
-      var sel   = row.querySelector('select');
-      var input = row.querySelector('input[type="number"]');
-      var price = parseFloat(sel ? sel.value : 0) || 0;
-      var amt   = parseFloat(input ? input.value : 0) || 0;
-      var sub   = amt * price;
-      grand += sub;
-      var s = row.querySelector('.item-total');
-      if (s) s.textContent = 'J$ ' + sub.toLocaleString('en-JM');
-    });
-    var totalEl = document.getElementById('t-edit-grand-total');
-    if (totalEl) totalEl.textContent = 'J$ ' + grand.toLocaleString('en-JM', {minimumFractionDigits:2});
-  }
-
-  var editRowCounter = 0;
-
-  function addEditRow(prefix, selectedLunch, selectedAmount, selectedPrice) {
-    editRowCounter++;
-    var id  = prefix + '-erow-' + editRowCounter;
-    var div = document.createElement('div');
-    div.className = 'item-row';
-    div.id = id;
-    var lunchTypes = prefix === 'c' || prefix === 'c-edit' ? LUNCH_TYPES_CLASS : LUNCH_TYPES_OFFICE;
-    var realPrefix = prefix.replace('-edit', '');
-    var opts = '<option value="">— Select —</option>' +
-      lunchTypes.map(function(t) {
-        return '<option value="' + (t.price || '') + '"' + (t.name === selectedLunch ? ' selected' : '') + '>' + t.name + '</option>';
-      }).join('');
-    var priceOpts = '<option value="">— Price —</option>' +
-      PRICES.map(function(p) {
-        return '<option' + (String(p) === String(selectedPrice) ? ' selected' : '') + '>' + p + '</option>';
-      }).join('');
-    var lunchSel = document.createElement('select');
-    lunchSel.innerHTML = opts;
-    var priceSel = document.createElement('select');
-    priceSel.innerHTML = priceOpts;
-    if (selectedPrice) {
-      var spStr = String(selectedPrice);
-      if (!Array.from(priceSel.options).some(function(o){ return o.value == spStr || o.text == spStr; })) {
-        var spOpt = document.createElement('option');
-        spOpt.value = spStr; spOpt.text = spStr;
-        priceSel.appendChild(spOpt);
-      }
-      priceSel.value = spStr;
-      _lockPriceSel(priceSel);
-    }
-    lunchSel.onchange = function() {
-      if (this.value) {
-        var price2 = this.value;
-        if (price2 && !Array.from(priceSel.options).some(function(o){ return o.value == price2; })) {
-          var opt2 = document.createElement('option');
-          opt2.value = price2; opt2.text = price2;
-          priceSel.appendChild(opt2);
-        }
-        priceSel.value = price2;
-        _lockPriceSel(priceSel);
-      } else {
-        priceSel.value = '';
-        priceSel.style.pointerEvents = '';
-        priceSel.style.background = '';
-        priceSel.style.cursor = '';
-      }
-      calcEditGrand(realPrefix);
-    };
-    priceSel.onchange = function() { calcEditGrand(realPrefix); };
-    var amtInput = document.createElement('input');
-    amtInput.type = 'number'; amtInput.min = '1'; amtInput.max = '999';
-    amtInput.placeholder = '0'; amtInput.value = selectedAmount || '';
-    amtInput.oninput = function() { calcEditGrand(realPrefix); };
-    var subtotal = document.createElement('span');
-    subtotal.className = 'item-total'; subtotal.textContent = 'J$ 0';
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button'; removeBtn.className = 'btn-remove'; removeBtn.textContent = '✕';
-    removeBtn.onclick = function() { document.getElementById(id).remove(); calcEditGrand(realPrefix); };
-    div.appendChild(lunchSel); div.appendChild(amtInput);
-    div.appendChild(priceSel); div.appendChild(subtotal); div.appendChild(removeBtn);
-    document.getElementById(prefix.replace('-edit','') + '-edit-items').appendChild(div);
-    calcEditGrand(realPrefix);
-  }
-
-  function calcEditGrand(prefix) {
-    var grand = 0;
-    var container = document.getElementById(prefix + '-edit-items');
-    if (!container) return;
-    container.querySelectorAll('.item-row').forEach(function(row) {
-      var selects = row.querySelectorAll('select');
-      var input   = row.querySelector('input');
-      var amt   = parseFloat(input.value)      || 0;
-      var price = parseFloat(selects[1].value) || 0;
-      var sub   = amt * price;
-      grand += sub;
-      row.querySelector('.item-total').textContent = 'J$ ' + sub.toLocaleString('en-JM');
-    });
-    var totalEl = document.getElementById(prefix + '-edit-grand-total');
-    if (totalEl) totalEl.textContent = 'J$ ' + grand.toLocaleString('en-JM', { minimumFractionDigits: 2 });
-  }
-
-  async function updateOrder(prefix) {
-    var btn      = document.getElementById(prefix + '-update-btn');
-    var msgEl    = document.getElementById(prefix + '-edit-msg');
-    var date     = document.getElementById(prefix + '-edit-date').value;
-    var key      = prefix === 'c'
-      ? document.getElementById('c-edit-class').value
-      : prefix === 't'
-        ? document.getElementById('t-edit-class').value
-        : document.getElementById('o-edit-name').value.trim();
-    var sheetTab  = prefix === 'c' ? 'Classes' : prefix === 't' ? 'Tuckshop' : 'Office';
-    var scriptUrl = prefix === 't' ? TUCKSHOP_SCRIPT_URL : SCRIPT_URL;
-
-    // Collect rows
-    var rows = [];
-    var valid = true;
-    document.getElementById(prefix + '-edit-items').querySelectorAll('.item-row').forEach(function(row) {
-      if (prefix === 't') {
-        var sel     = row.querySelector('select');
-        var input   = row.querySelector('input[type="number"]');
-        var product = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
-        var price   = parseFloat(sel ? sel.value : 0) || 0;
-        var amt     = parseFloat(input ? input.value : 0) || 0;
-        if (!product || amt <= 0) { valid = false; }
-        else { rows.push({ product: product, amount: amt, price: price, total: amt * price }); }
-      } else {
-        var selects   = row.querySelectorAll('select');
-        var input     = row.querySelector('input');
-        var lunchSel  = selects[0];
-        var priceSel  = selects[1];
-        var lunchType = lunchSel.selectedIndex > 0 ? lunchSel.options[lunchSel.selectedIndex].text : '';
-        var amt       = parseFloat(input.value)    || 0;
-        var price     = parseFloat(priceSel.value) || 0;
-        lunchSel.style.borderColor  = lunchType ? '' : '#B22234';
-        input.style.borderColor     = amt > 0   ? '' : '#B22234';
-        priceSel.style.borderColor  = price > 0 ? '' : '#B22234';
-        if (!lunchType || amt <= 0 || price <= 0) { valid = false; }
-        else { rows.push({ lunchType: lunchType, amount: amt, price: price, total: amt * price }); }
-      }
-    });
-
-    if (!valid || rows.length === 0) {
-      msgEl.className = 'edit-msg notfound';
-      msgEl.textContent = 'Please complete all items before updating.';
-      return;
-    }
-
-    // ── Verificar stock de patties antes de actualizar (solo tuckshop) ──
-    if (prefix === 't') {
-      var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
-      var stockErrors = [];
-      PATTY_TYPES.forEach(function(pt) {
-        // Cantidad original de este patty en la orden (parse como número)
-        var origAmt = 0;
-        (editOriginalRows['t'] || []).forEach(function(r) {
-          if (r.product === pt) origAmt += parseFloat(r.amount) || 0;
-        });
-        // Cantidad nueva en la orden editada
-        var newAmt = 0;
-        rows.forEach(function(r) { if (r.product === pt) newAmt += parseFloat(r.amount) || 0; });
-        // Solo bloquear si se intenta pedir MÁS que antes
-        var extra = newAmt - origAmt;
-        if (extra > 0) {
-          var available = tuckshopStock[pt] !== undefined ? parseInt(tuckshopStock[pt]) || 0 : 999;
-          if (extra > available) {
-            stockErrors.push(pt + ': you need to add ' + extra + ' but only ' + available + ' left');
-          }
-        }
-      });
-      if (stockErrors.length) {
-        msgEl.className = 'edit-msg notfound';
-        msgEl.innerHTML = '🚫 ' + stockErrors.join('<br>');
-        return;
-      }
-    }
-
-    var grandTotal = rows.reduce(function(s, r) { return s + r.total; }, 0);
-
-    btn.disabled    = true;
-    btn.textContent = 'Updating...';
-
-    var data = {
-      action:     'updateOrder',
-      sheetTab:   sheetTab,
-      startRow:   editStartRow[prefix],
-      date:       date,
-      rows:       rows,
-      grandTotal: grandTotal,
-      timestamp:  editTimestamp[prefix] // ← usar el timestamp original, NO generar uno nuevo
-    };
-    if (prefix === 'c' || prefix === 't') data.className = key;
-    else data.name = key;
-
-    try {
-      var response = await fetch(scriptUrl, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } });
-      var result   = await response.json();
-      if (result.result === 'success') {
-        // Recalcular stock de patties si es update de tuckshop
-        if (prefix === 't') {
-          var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
-          // 1. Devolver las cantidades de la orden original al stock
-          (editOriginalRows['t'] || []).forEach(function(r) {
-            if (PATTY_TYPES.indexOf(r.product) !== -1) {
-              tuckshopStock[r.product] = (tuckshopStock[r.product] || 0) + (parseFloat(r.amount) || 0);
-            }
-          });
-          // 2. Descontar las cantidades nuevas
-          rows.forEach(function(r) {
-            if (PATTY_TYPES.indexOf(r.product) !== -1) {
-              tuckshopStock[r.product] = Math.max(0, (tuckshopStock[r.product] || 0) - r.amount);
-            }
-          });
-          // 3. Guardar en GS y actualizar display
-          renderTuckshopProducts();
-          if (TUCKSHOP_SCRIPT_URL !== 'YOUR_TUCKSHOP_SCRIPT_URL_HERE') {
-            fetch(TUCKSHOP_SCRIPT_URL, {
-              method: 'POST',
-              body: JSON.stringify({ action: 'updateStock', stock: tuckshopStock }),
-              headers: { 'Content-Type': 'text/plain' }
-            }).catch(function(e){ console.error(e); });
-          }
-          editOriginalRows['t'] = [];
-        }
-        msgEl.className = 'edit-msg found';
-        msgEl.textContent = '✅ Order updated successfully! Total: J$ ' + grandTotal.toLocaleString('en-JM');
-        document.getElementById(prefix + '-edit-items').innerHTML = '';
-        document.getElementById(prefix + '-edit-add').style.display = 'none';
-        document.getElementById(prefix + '-edit-total-box').style.display = 'none';
-        btn.style.display = 'none';
-        editStartRow[prefix]  = null;
-        editTimestamp[prefix] = null;
-      } else { throw new Error(result.message || JSON.stringify(result)); }
-    } catch(err) {
-      msgEl.className = 'edit-msg notfound';
-      msgEl.textContent = '❌ Error updating. Please try again.';
-      console.error(err);
-    }
-
-    btn.disabled    = false;
-    btn.textContent = 'Update Order';
-  }
-
-
-  // ══════════ TUCKSHOP ══════════
-
-
-  function openTuckshopEditor() {
-    if (!document.getElementById('tuckshop-editor').classList.contains('open')) {
-      pendingTuckshopEdit = true;
-      showModal('🔒 Tuckshop Editor', 'Enter the password to edit products and inventory.');
-    } else {
-      document.getElementById('tuckshop-editor').classList.remove('open');
-    }
-  }
-
-  function loadTuckshopProducts() {
-    if (TUCKSHOP_SCRIPT_URL === "YOUR_TUCKSHOP_SCRIPT_URL_HERE") {
-      // Demo mode — no products until staff sets them
-      renderTuckshopProducts();
-      return;
-    }
-    fetch(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
-      .then(function(r){ return r.json(); })
-      .then(function(res){
-        if (res.result === 'success') {
-          tuckshopProducts = res.products || [];
-          tuckshopStock    = res.stock    || {};
-          // Clean date exactly like renderMenu does — strip apostrophes, take first 10 chars
-          var rawDate = String(res.date || '');
-          tuckshopDate = rawDate.replace(/'/g, '').trim().substring(0, 10);
-          renderTuckshopProducts();
-        }
-      })
-      .catch(function(err){ console.error('Tuckshop load error:', err); });
-  }
-
-  // Auto-refresh: solo actualiza el countdown de patties sin tocar el form
-  function refreshStockOnly() {
-    if (TUCKSHOP_SCRIPT_URL === "YOUR_TUCKSHOP_SCRIPT_URL_HERE") return;
-    fetch(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
-      .then(function(r){ return r.json(); })
-      .then(function(res){
-        if (res.result === 'success') {
-          tuckshopStock = res.stock || {};
-          // Solo actualizar los chips de stock en el panel, sin tocar el form
-          var chips = document.querySelectorAll('.menu-item-chip .menu-item-name');
-          chips.forEach(function(chip) {
-            var name = chip.textContent.replace(/\s*\(\d+ left\)/, '').trim();
-            if ((name === 'Beef Patty' || name === 'Cheese Patty' || name === 'Chicken Patty') && tuckshopStock[name] !== undefined) {
-              chip.innerHTML = name + ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock[name] + ' left)</span>';
-            }
-          });
-        }
-      })
-      .catch(function(err){ console.error('Stock refresh error:', err); });
-  }
-  setInterval(refreshStockOnly, 60000);
-
-  function renderTuckshopProducts() {
-    var display     = document.getElementById('tuckshop-products-display');
-    var dateDisplay = document.getElementById('tuckshop-date-display');
-    var lockMsg     = document.getElementById('tuckshop-lock-msg');
-    var submitBtn   = document.querySelector('#tuckshopForm button[type="submit"]');
-    var addRowBtn   = document.querySelector('#tab-tuckshop .btn-add-row');
-
-    // Show date and stale warning
-    if (tuckshopDate) {
-      var isToday = tuckshopDate === getJamaicaToday();
-      dateDisplay.innerHTML = '<span style="font-size:0.82rem;padding:4px 12px;border-radius:20px;border:1px solid ' +
-        (isToday ? '#aeddc0;background:#e8f5ee;color:#145229' : '#f5bfbf;background:#fdf0f0;color:#8b1a1a') + ';">' +
-        formatDate(tuckshopDate) + (isToday ? '' : ' ⚠️ Not updated today') + '</span>';
-
-      // applyTuckshopTimeLock handles all button state (checks date + time window)
-      applyTuckshopTimeLock();
-    } else {
-      dateDisplay.innerHTML = '';
-      applyTuckshopTimeLock();
-    }
-
-    if (!tuckshopProducts.length) {
-      display.innerHTML = '<p class="menu-empty">No products set yet.</p>';
-      return;
-    }
-    display.innerHTML = '<div class="menu-items-list">' +
-      tuckshopProducts.map(function(p) {
-        var stockInfo = (p.name === 'Beef Patty' || p.name === 'Cheese Patty' || p.name === 'Chicken Patty') && tuckshopStock[p.name] !== undefined
-          ? ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock[p.name] + ' left)</span>' : '';
-        return '<div class="menu-item-chip"><span class="menu-item-name">' + p.name + stockInfo + '</span>' +
-               '<span class="menu-item-price">J$ ' + p.price + '</span></div>';
-      }).join('') + '</div>';
-
-    // Rebuild order dropdowns with the now-loaded products
-    rebuildTuckshopOrderDropdowns();
-  }
-
-  function loadTuckshopEditor() {
-    document.getElementById('tuckshop-date').value = tuckshopDate || getJamaicaToday();
-    document.getElementById('tuckshop-stock-beef').value    = tuckshopStock['Beef Patty']    || '';
-    document.getElementById('tuckshop-stock-cheese').value  = tuckshopStock['Cheese Patty']  || '';
-    document.getElementById('tuckshop-stock-chicken').value = tuckshopStock['Chicken Patty'] || '';
-    document.getElementById('tuckshop-product-rows').innerHTML = '';
-    if (tuckshopProducts.length) {
-      tuckshopProducts.forEach(function(p){ addTuckshopProductRow(p.name, p.price); });
-    } else {
-      addTuckshopProductRow('Beef Patty', '');
-      addTuckshopProductRow('Cheese Patty', '');
-      addTuckshopProductRow('Chicken Patty', '');
-      addTuckshopProductRow('Bun and Cheese', '');
-    }
-  }
-
-  var tuckshopProdCounter = 0;
-  function addTuckshopProductRow(name, price) {
-    tuckshopProdCounter++;
-    var id  = 'tprod-' + tuckshopProdCounter;
-    var div = document.createElement('div');
-    div.id = id;
-    div.style.cssText = 'display:grid;grid-template-columns:1fr 100px 36px;gap:8px;margin-bottom:8px;';
-    var inp1 = document.createElement('input');
-    inp1.type = 'text'; inp1.className = 'tprod-name';
-    inp1.placeholder = 'Product name'; inp1.value = name || '';
-    inp1.style.cssText = 'font-family:DM Sans,sans-serif;font-size:0.9rem;border:1.5px solid #D0D5DD;border-radius:10px;padding:0.5rem 0.7rem;width:100%;outline:none;';
-    var inp2 = document.createElement('input');
-    inp2.type = 'text'; inp2.className = 'tprod-price';
-    inp2.placeholder = 'Price'; inp2.value = price || '';
-    inp2.style.cssText = inp1.style.cssText;
-    var btn = document.createElement('button');
-    btn.type = 'button'; btn.textContent = '✕';
-    btn.style.cssText = 'background:none;border:1.5px solid #f5bfbf;border-radius:6px;color:#B22234;cursor:pointer;width:32px;height:32px;';
-    btn.onclick = function() { document.getElementById(id).remove(); };
-    div.appendChild(inp1); div.appendChild(inp2); div.appendChild(btn);
-    document.getElementById('tuckshop-product-rows').appendChild(div);
-  }
-
-  function saveTuckshopInventory() {
-    tuckshopStock['Beef Patty']    = parseInt(document.getElementById('tuckshop-stock-beef').value)    || 0;
-    tuckshopStock['Cheese Patty']  = parseInt(document.getElementById('tuckshop-stock-cheese').value)  || 0;
-    tuckshopStock['Chicken Patty'] = parseInt(document.getElementById('tuckshop-stock-chicken').value) || 0;
-    renderTuckshopProducts();
-  }
-
-  function saveTuckshopProducts() {
-    var date   = document.getElementById('tuckshop-date').value;
-    var names  = document.getElementById('tuckshop-product-rows').querySelectorAll('.tprod-name');
-    var prices = document.getElementById('tuckshop-product-rows').querySelectorAll('.tprod-price');
-    var products = [];
-    for (var i = 0; i < names.length; i++) {
-      var n = names[i].value.trim();
-      var p = prices[i] ? prices[i].value.trim() : '';
-      if (n) products.push({name: n, price: p});
-    }
-
-    var errEl = document.getElementById('tuckshop-save-error');
-
-    if (!date) {
-      errEl.style.cssText = 'display:block;color:#8b1a1a;background:#fdf0f0;border:1px solid #f5bfbf;border-radius:8px;padding:8px;font-size:0.85rem;margin-top:8px;';
-      errEl.textContent = 'Please set a date.';
-      return;
-    }
-
-    if (!products.length) {
-      errEl.style.cssText = 'display:block;color:#8b1a1a;background:#fdf0f0;border:1px solid #f5bfbf;border-radius:8px;padding:8px;font-size:0.85rem;margin-top:8px;';
-      errEl.textContent = 'Please add at least one product. Found: ' + names.length + ' rows.';
-      return;
-    }
-
-    tuckshopDate     = date;
-    tuckshopProducts = products;
-    tuckshopStock['Beef Patty']    = parseInt(document.getElementById('tuckshop-stock-beef').value)    || 0;
-    tuckshopStock['Cheese Patty']  = parseInt(document.getElementById('tuckshop-stock-cheese').value)  || 0;
-    tuckshopStock['Chicken Patty'] = parseInt(document.getElementById('tuckshop-stock-chicken').value) || 0;
-    renderTuckshopProducts();
-    rebuildTuckshopOrderDropdowns();
-    document.getElementById('tuckshop-editor').classList.remove('open');
-    errEl.style.cssText = 'display:block;color:#145229;background:#e8f5ee;border:1px solid #aeddc0;border-radius:8px;padding:8px;font-size:0.85rem;margin-top:8px;';
-    errEl.textContent = '✅ ' + products.length + ' products saved!';
-    setTimeout(function(){ errEl.style.display = 'none'; }, 2000);
-
-    if (TUCKSHOP_SCRIPT_URL !== "YOUR_TUCKSHOP_SCRIPT_URL_HERE") {
-      fetch(TUCKSHOP_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'saveProducts', date: date, products: products, stock: tuckshopStock }),
-        headers: { 'Content-Type': 'text/plain' }
-      }).catch(function(e){ console.error(e); });
-    }
-  }
-
-  function onTuckshopProductChange(sel, rowId) {
-    var price    = sel.value;
-    var row      = document.getElementById(rowId);
-    var priceInput = row.querySelectorAll('input')[1];
-    priceInput.value = price ? 'J$ ' + price : '';
-    calcTuckshopTotal();
-  }
-
-  function removeTuckshopRow(id) {
-    // Return patties to stock if removing patty row
-    var row = document.getElementById(id);
-    if (row) {
-      var sel = row.querySelector('select');
-      var inp = row.querySelector('input');
-      if (sel && sel.options[sel.selectedIndex]) {
-        var productName = sel.options[sel.selectedIndex].text;
-        if (productName === 'Beef Patty' || productName === 'Cheese Patty' || productName === 'Chicken Patty') {
-          var amt = parseInt(inp.value) || 0;
-          tuckshopStock[productName] = (tuckshopStock[productName] || 0) + amt;
-          renderTuckshopProducts();
-        }
-      }
-      row.remove();
-    }
-    calcTuckshopTotal();
-  }
-
-  function calcTuckshopTotal() {
-    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
-    var grand = 0;
-    var totalRequested = {};
-
-    document.getElementById('t-items').querySelectorAll('.item-row').forEach(function(row) {
-      var sel   = row.querySelector('select');
-      var input = row.querySelector('input[type="number"]');
-      var price = parseFloat(sel ? sel.value : 0) || 0;
-      var amt   = parseFloat(input ? input.value : 0) || 0;
-      var name  = (sel && sel.options[sel.selectedIndex]) ? sel.options[sel.selectedIndex].text : '';
-      var sub   = price * amt;
-      grand += sub;
-      var subtotalEl = row.querySelector('.item-total');
-      if (subtotalEl) subtotalEl.textContent = 'J$ ' + sub.toLocaleString('en-JM');
-      if (PATTY_TYPES.indexOf(name) !== -1 && amt > 0) {
-        totalRequested[name] = (totalRequested[name] || 0) + amt;
-      }
-    });
-
-    var totalEl = document.getElementById('t-grand-total');
-    if (totalEl) totalEl.textContent = 'J$ ' + grand.toLocaleString('en-JM', {minimumFractionDigits:2});
-
-    var warnEl = document.getElementById('t-stock-warning');
-    if (!warnEl) return;
-    var errors = [];
-    PATTY_TYPES.forEach(function(pt) {
-      if (totalRequested[pt]) {
-        var available = (tuckshopStock[pt] !== undefined) ? tuckshopStock[pt] : 999;
-        if (totalRequested[pt] > available) {
-          errors.push('⚠️ ' + pt + ': you need ' + totalRequested[pt] + ' but only ' + available + ' left');
-        }
-      }
-    });
-    if (errors.length) {
-      warnEl.innerHTML = errors.join('<br>');
-      warnEl.style.display = 'block';
-    } else {
-      warnEl.style.display = 'none';
-    }
-  }
-
-  function rebuildTuckshopOrderDropdowns() {
-    document.getElementById('t-items').innerHTML = '';
-    addTuckshopOrderRow();
-  }
-
-  // Init tuckshop with one empty row when tab activates
-  function initTuckshopForm() {
-    if (!document.getElementById('t-items').children.length) {
-      addTuckshopOrderRow();
-    }
-  }
-
-  // Tuckshop form submit
-
-  // ── TUCKSHOP ORDER ROW ──
-  var tuckshopOrderCounter = 0;
-  function addTuckshopOrderRow(selectedProduct, selectedAmt) {
-    tuckshopOrderCounter++;
-    var id  = 't-orow-' + tuckshopOrderCounter;
-    var div = document.createElement('div');
-    div.className = 'item-row';
-    div.id = id;
-
-    var opts = '<option value="">— Select —</option>' +
-      tuckshopProducts.map(function(p){
-        return '<option value="' + p.price + '"' + (p.name === selectedProduct ? ' selected' : '') + '>' + p.name + '</option>';
-      }).join('');
-
-    var priceInput = document.createElement('input');
-    priceInput.type = 'text'; priceInput.readOnly = true;
-    priceInput.placeholder = 'Price'; priceInput.className = 'tuck-price-display';
-    priceInput.style.cssText = 'background:var(--bg);cursor:default;';
-
-    var sel = document.createElement('select');
-    sel.innerHTML = opts;
-    sel.onchange = function() {
-      priceInput.value = this.value ? 'J$ ' + this.value : '';
-      calcTuckshopTotal();
-    };
-
-    var amtInput = document.createElement('input');
-    amtInput.type = 'number'; amtInput.min = '1'; amtInput.max = '999';
-    amtInput.placeholder = '0'; amtInput.value = selectedAmt || '';
-    amtInput.oninput = calcTuckshopTotal;
-
-    var subtotal = document.createElement('span');
-    subtotal.className = 'item-total'; subtotal.textContent = 'J$ 0';
-
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button'; removeBtn.className = 'btn-remove';
-    removeBtn.textContent = '✕';
-    removeBtn.onclick = function() { document.getElementById(id).remove(); calcTuckshopTotal(); };
-
-    div.appendChild(sel);
-    div.appendChild(amtInput);
-    div.appendChild(priceInput);
-    div.appendChild(subtotal);
-    div.appendChild(removeBtn);
-    document.getElementById('t-items').appendChild(div);
-
-    if (selectedProduct) {
-      sel.value = tuckshopProducts.find(function(p){ return p.name === selectedProduct; }) ?
-        tuckshopProducts.find(function(p){ return p.name === selectedProduct; }).price : '';
-      priceInput.value = sel.value ? 'J$ ' + sel.value : '';
-      calcTuckshopTotal();
-    }
-  }
-
-
-  function rebuildTuckshopOrderDropdowns() {
-    document.getElementById('t-items').innerHTML = '';
-    tuckshopOrderCounter = 0;
-    addTuckshopOrderRow();
-  }
-
-  document.getElementById('tuckshopForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    var statusEl = document.getElementById('t-status');
-    var btn      = this.querySelector('button[type="submit"]');
-    statusEl.className = 'status-msg';
-    statusEl.style.display = 'none';
-
-    var date      = document.getElementById('t-date').value;
-    var className = document.getElementById('t-class').value;
-
-    var headersOk = true;
-    if (!date)      { document.getElementById('t-date').style.borderColor  = '#B22234'; headersOk = false; }
-    else              document.getElementById('t-date').style.borderColor  = '';
-    if (!className) { document.getElementById('t-class').style.borderColor = '#B22234'; headersOk = false; }
-    else              document.getElementById('t-class').style.borderColor = '';
-
-    var rows = [];
-    var rowsOk = true;
-    document.getElementById('t-items').querySelectorAll('.item-row').forEach(function(row) {
-      var sel   = row.querySelector('select');
-      var input = row.querySelector('input[type="number"]');
-      var name  = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
-      var price = parseFloat(sel.value) || 0;
-      var amt   = parseFloat(input.value) || 0;
-      sel.style.borderColor   = name  ? '' : '#B22234';
-      input.style.borderColor = amt>0 ? '' : '#B22234';
-      if (!name || amt <= 0) { rowsOk = false; }
-      else rows.push({ product: name, amount: amt, price: price, total: amt*price });
-    });
-
-    if (!headersOk || !rowsOk || rows.length === 0) {
-      statusEl.className = 'status-msg error';
-      statusEl.textContent = 'Please fill in all required fields.';
-      statusEl.style.display = 'block';
-      return;
-    }
-
-    // ── Bloquear si algún patty excede el stock disponible ──
-    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
-    var stockErrors = [];
-    var totalRequested = {};
-    rows.forEach(function(r) {
-      if (PATTY_TYPES.indexOf(r.product) !== -1) {
-        totalRequested[r.product] = (totalRequested[r.product] || 0) + r.amount;
-      }
-    });
-    PATTY_TYPES.forEach(function(pt) {
-      if (totalRequested[pt]) {
-        var available = (tuckshopStock[pt] !== undefined) ? tuckshopStock[pt] : 999;
-        if (totalRequested[pt] > available) {
-          stockErrors.push(pt + ': requested ' + totalRequested[pt] + ', only ' + available + ' left');
-        }
-      }
-    });
-    if (stockErrors.length) {
-      statusEl.className = 'status-msg error';
-      statusEl.innerHTML = '🚫 Cannot submit — not enough stock:<br>' + stockErrors.join('<br>');
-      statusEl.style.display = 'block';
-      return;
-    }
-
-    // NOTE: stock deduction happens AFTER successful submit (below)
-
-    var grandTotal = rows.reduce(function(s,r){ return s+r.total; },0);
-
-    if (TUCKSHOP_SCRIPT_URL === "YOUR_TUCKSHOP_SCRIPT_URL_HERE") {
-      showTuckshopSuccess(statusEl, grandTotal);
-      return;
-    }
-
-    btn.disabled = true; btn.textContent = 'Submitting…';
-
-    var data = {
-      action: 'tuckshopOrder', sheetTab: 'Tuckshop',
-      timestamp: new Date().toLocaleString('en-JM'),
-      date: date, className: className, rows: rows, grandTotal: grandTotal
-    };
-
-    try {
-      var response = await fetch(TUCKSHOP_SCRIPT_URL, { method:'POST', body:JSON.stringify(data), headers:{'Content-Type':'text/plain'} });
-      var result   = await response.json();
-      if (result.result === 'duplicate') {
-        statusEl.className = 'status-msg error';
-        statusEl.innerHTML = '⚠️ ' + result.message;
-        statusEl.style.display = 'block';
-      } else if (result.result === 'success') {
-        // Use stock returned by server (authoritative), fallback to local deduction
-        if (result.stock) {
-          tuckshopStock = result.stock;
-        } else {
-          rows.forEach(function(r) {
-            if (r.product === 'Beef Patty' || r.product === 'Cheese Patty' || r.product === 'Chicken Patty') {
-              tuckshopStock[r.product] = Math.max(0, (tuckshopStock[r.product] || 0) - r.amount);
-            }
-          });
-        }
-        renderTuckshopProducts();
-        showTuckshopSuccess(statusEl, grandTotal);
-      } else { throw new Error(result.message || JSON.stringify(result)); }
-    } catch(err) {
-      statusEl.className = 'status-msg error';
-      statusEl.innerHTML = '❌ Error submitting. Please try again.';
-      statusEl.style.display = 'block';
-    }
-    btn.disabled = false; btn.textContent = 'Submit Tuckshop Order';
-  });
-
-  function showTuckshopSuccess(statusEl, grandTotal) {
-    statusEl.className = 'status-msg success';
-    statusEl.innerHTML = '✅ Order submitted! Total: <strong>J$ ' + grandTotal.toLocaleString('en-JM') + '</strong>';
-    statusEl.style.display = 'block';
-    document.getElementById('tuckshopForm').reset();
-    document.getElementById('t-date').value = today;
-    document.getElementById('t-items').innerHTML = '';
-    document.getElementById('t-grand-total').textContent = 'J$ 0.00';
-    addTuckshopOrderRow();
-    setTimeout(function(){ statusEl.style.display = 'none'; }, 3000);
-  }
-
-
-  // ── OFFICE NAME AUTOCOMPLETE ──
-  var officeNames = [];
-
-  function loadOfficeNames() {
-    if (SCRIPT_URL === "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") return;
-    fetch(SCRIPT_URL + '?action=getNames')
-      .then(function(r){ return r.json(); })
-      .then(function(res){
-        if (res.result === 'success') officeNames = res.names || [];
-      })
-      .catch(function(e){ console.error(e); });
-  }
-
-  function showNameSuggestions(val) {
-    var list = document.getElementById('name-suggestions');
-    if (!val || val.length < 1) { list.style.display = 'none'; return; }
-    var matches = officeNames.filter(function(n){
-      return n.toLowerCase().indexOf(val.toLowerCase()) !== -1;
-    });
-    if (!matches.length) { list.style.display = 'none'; return; }
-    list.innerHTML = matches.map(function(n){
-      return '<div class="autocomplete-item" onclick="selectName(\'' + n.replace(/'/g,"\'") + '\')">' + n + '</div>';
-    }).join('');
-    list.style.display = 'block';
-  }
-
-  function selectName(name) {
-    document.getElementById('o-edit-name').value = name;
-    document.getElementById('name-suggestions').style.display = 'none';
-  }
-
-  // Hide suggestions when clicking outside
-  document.addEventListener('click', function(e) {
-    var wrap = document.querySelector('.autocomplete-wrap');
-    if (wrap && !wrap.contains(e.target)) {
-      var list = document.getElementById('name-suggestions');
-      if (list) list.style.display = 'none';
-    }
-  });
-
-  document.getElementById('classForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    submitOrder('c', 'Classes', ['c-date','c-class'], ['date','className'], 'Submit Class Order');
-  });
-
-  document.getElementById('officeForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    submitOrder('o', 'Office', ['o-date','o-name'], ['date','name'], 'Submit Office Order');
-  });
-
-  // Apply classes lock if after 9AM
-  applyClassesLock();
-  setInterval(applyClassesLock, 60000); // re-check every minute
-  applyTuckshopTimeLock();
-  setInterval(applyTuckshopTimeLock, 60000);
-
-  // Show general password modal immediately — nothing visible until unlocked
-  // ── CHECK ORDER STATUS ──
-  var chsMode = 'class';
-
-  function toggleCheckStatus() {
-    var panel = document.getElementById('c-check-status-panel');
-    panel.classList.toggle('open');
-    var d = document.getElementById('chs-date');
-    d.value = today;
-  }
-
-  function switchCheckTab(mode) {
-    chsMode = mode;
-    document.getElementById('chs-class-wrap').style.display = mode === 'class' ? '' : 'none';
-    document.getElementById('chs-name-wrap').style.display  = mode === 'office' ? '' : 'none';
-    ['class','office'].forEach(function(m) {
-      var btn = document.getElementById('chs-tab-' + m);
-      if (!btn) return;
-      var active = m === mode;
-      btn.style.background  = active ? 'var(--blue)' : 'var(--white)';
-      btn.style.color       = active ? '#fff' : 'var(--muted)';
-      btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
-    });
-    document.getElementById('chs-result').className = 'edit-result';
-  }
-
-  function checkOrderStatus() {
-    var date = document.getElementById('chs-date').value;
-    var key  = chsMode === 'class'
-      ? document.getElementById('chs-class').value
-      : document.getElementById('chs-name').value.trim();
-    var resEl = document.getElementById('chs-result');
-    var msgEl = document.getElementById('chs-msg');
-    resEl.className = 'edit-result show';
-    if (!date || !key) {
-      msgEl.className = 'edit-msg notfound';
-      msgEl.textContent = chsMode === 'office' ? 'Please enter a name and date.' : 'Please select a class and date.';
-      return;
-    }
-    msgEl.className = 'edit-msg found';
-    msgEl.textContent = 'Checking...';
-    var sheetTab = chsMode === 'class' ? 'Classes' : 'Office';
-    var url = SCRIPT_URL + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) + '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
-    fetch(url).then(function(r){ return r.json(); }).then(function(res) {
-      if (res.result === 'notfound') {
-        msgEl.className = 'edit-msg notfound';
-        msgEl.textContent = 'No order found for ' + key + ' on this date.';
-      } else {
-        var st = res.status || 'Pending';
-        var bg = st==='Served' ? '#00C851' : st==='Pick up' ? '#FFD600' : st==='Updated' ? '#FF6D00' : '#CC0000';
-        var fg = st==='Pick up' ? '#000' : '#fff';
-        msgEl.className = 'edit-msg found';
-        msgEl.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'
-          + '<div><strong>' + key + '</strong><br><span style="font-size:0.82rem;color:var(--muted);">Total: J$ ' + Number(res.grandTotal||0).toLocaleString('en-JM') + '</span></div>'
-          + '<span style="background:' + bg + ';color:' + fg + ';font-weight:700;padding:6px 18px;border-radius:20px;font-size:0.92rem;">' + st + '</span>'
-          + '</div>';
-      }
-    }).catch(function(){ msgEl.className='edit-msg notfound'; msgEl.textContent='Error. Please try again.'; });
-  }
-
-  function toggleCheckStatusTuckshop() {
-    var panel = document.getElementById('t-check-status-panel');
-    panel.classList.toggle('open');
-    var d = document.getElementById('ths-date');
-    d.value = today;
-  }
-
-  function checkTuckshopStatus() {
-    var cls  = document.getElementById('ths-class').value;
-    var date = document.getElementById('ths-date').value;
-    var resEl = document.getElementById('ths-result');
-    var msgEl = document.getElementById('ths-msg');
-    resEl.className = 'edit-result show';
-    if (!cls || !date) {
-      msgEl.className = 'edit-msg notfound';
-      msgEl.textContent = 'Please select a class and date.';
-      return;
-    }
-    msgEl.className = 'edit-msg found';
-    msgEl.textContent = 'Checking...';
-    var url = TUCKSHOP_SCRIPT_URL + '?action=getOrder&sheetTab=Tuckshop&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(cls);
-    fetch(url).then(function(r){ return r.json(); }).then(function(res) {
-      if (res.result === 'notfound') {
-        msgEl.className = 'edit-msg notfound';
-        msgEl.textContent = 'No order found for ' + cls + ' on this date.';
-      } else {
-        var st = res.status || 'Pending';
-        var bg = st==='Served' ? '#00C851' : st==='Pick up' ? '#FFD600' : st==='Updated' ? '#FF6D00' : '#CC0000';
-        var fg = st==='Pick up' ? '#000' : '#fff';
-        msgEl.className = 'edit-msg found';
-        msgEl.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'
-          + '<div><strong>' + cls + '</strong><br><span style="font-size:0.82rem;color:var(--muted);">Total: J$ ' + Number(res.grandTotal||0).toLocaleString('en-JM') + '</span></div>'
-          + '<span style="background:' + bg + ';color:' + fg + ';font-weight:700;padding:6px 18px;border-radius:20px;font-size:0.92rem;">' + st + '</span>'
-          + '</div>';
-      }
-    }).catch(function(){ msgEl.className='edit-msg notfound'; msgEl.textContent='Error. Please try again.'; });
-  }
-
-  function loadSalesSummary() {
-    var lunchEl   = document.getElementById('sales-lunch-total');
-    var tuckshopEl = document.getElementById('sales-tuckshop-total');
-    if (!lunchEl || !tuckshopEl) return;
-    lunchEl.textContent    = '…';
-    tuckshopEl.textContent = '…';
-
-    // Canteen + Office total from Lunch GS
-    if (SCRIPT_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-      fetch(SCRIPT_URL + '?action=getSalesSummary')
-        .then(function(r){ return r.json(); })
-        .then(function(res){
-          lunchEl.textContent = res.result === 'success'
-            ? 'J$ ' + Number(res.total || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})
-            : '—';
-        })
-        .catch(function(){ lunchEl.textContent = '—'; });
-    } else { lunchEl.textContent = '—'; }
-
-    // Tuckshop total from Tuckshop GS
-    if (TUCKSHOP_SCRIPT_URL !== 'YOUR_TUCKSHOP_SCRIPT_URL_HERE') {
-      fetch(TUCKSHOP_SCRIPT_URL + '?action=getSalesSummary')
-        .then(function(r){ return r.json(); })
-        .then(function(res){
-          tuckshopEl.textContent = res.result === 'success'
-            ? 'J$ ' + Number(res.total || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})
-            : '—';
-        })
-        .catch(function(){ tuckshopEl.textContent = '—'; });
-    } else { tuckshopEl.textContent = '—'; }
-  }
-
-  // ── Load lunch types and prices from GS ──────────────────────
-  function loadLunchTypes() {
-    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
-    fetch(SCRIPT_URL + '?action=getLunchTypes')
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result !== 'success') return;
-        LUNCH_TYPES_CLASS  = res.classTypes  || [];
-        LUNCH_TYPES_OFFICE = res.officeTypes || [];
-        // Refresh any existing rows in open forms
-        ['c','o'].forEach(function(p) {
-          var items = document.getElementById(p + '-items');
-          if (items) items.innerHTML = '';
-          addRow(p);
-        });
-      })
-      .catch(function(e) { console.error('loadLunchTypes error:', e); });
-  }
-  loadLunchTypes();
-
-  // ── Sales History Charts ─────────────────────────────────────
-  var _chartInstances = {};
-
-  function _destroyChart(id) {
-    if (_chartInstances[id]) { _chartInstances[id].destroy(); delete _chartInstances[id]; }
-  }
-
-  function _palette(n) {
-    var base = ['#1A2E6B','#2196F3','#00C851','#FF6D00','#FFD600','#E91E63',
-                '#9C27B0','#00BCD4','#FF5722','#8BC34A','#607D8B','#795548'];
-    var out = [];
-    for (var i = 0; i < n; i++) out.push(base[i % base.length]);
-    return out;
-  }
-
-  function _buildBarChart(canvasId, labels, data, color, label) {
-    _destroyChart(canvasId);
-    var ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    var barWidth = 70;
-    var wrapEl   = ctx.parentElement;
-    var wrapW    = wrapEl ? wrapEl.offsetWidth : 320;
-    var canvasW  = labels.length * barWidth;
-    // If fewer bars than container width, still fill left-aligned
-    if (canvasW < wrapW) canvasW = labels.length * barWidth + 40; // just padding on right
-    ctx.style.width  = canvasW + 'px';
-    ctx.style.height = '220px';
-    ctx.width  = canvasW;
-    ctx.height = 220;
-    _chartInstances[canvasId] = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: label,
-          data: data,
-          backgroundColor: color,
-          borderRadius: 4,
-          barThickness: 38,
-          categoryPercentage: 1.0,
-          barPercentage: 0.6
-        }]
-      },
-      options: {
-        responsive: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: function(c) {
-                return 'J$ ' + Number(c.parsed.y).toLocaleString('en-US', {minimumFractionDigits:2});
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              font: { size: 11 },
-              callback: function(v) { return 'J$' + Number(v).toLocaleString(); }
-            },
-            grid: { color: 'rgba(0,0,0,0.06)' }
-          },
-          x: {
-            ticks: { font: { size: 11 }, maxRotation: 0, minRotation: 0 },
-            grid: { display: false }
-          }
-        }
-      }
-    });
-  }
-
-  function _buildDoughnutChart(canvasId, labels, data) {
-    _destroyChart(canvasId);
-    var ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    _chartInstances[canvasId] = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: labels,
-        datasets: [{ data: data, backgroundColor: _palette(data.length), borderWidth: 1 }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
-          tooltip: {
-            callbacks: {
-              label: function(ctx) {
-                var total = ctx.dataset.data.reduce(function(a,b){return a+b;},0);
-                var pct = total ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
-                return ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  function _buildWeekdayChart(canvasId, rows, color) {
-    var days = ['Mon','Tue','Wed','Thu','Fri'];
-    var totals = [0,0,0,0,0], counts = [0,0,0,0,0];
-    rows.forEach(function(r) {
-      if (!r.rawDate) return;
-      var parts = r.rawDate.split('-');
-      if (parts.length < 3) return;
-      var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-      var dow = d.getDay(); // 0=Sun,1=Mon,...,5=Fri,6=Sat
-      if (dow >= 1 && dow <= 5) {
-        totals[dow-1] += r.total;
-        counts[dow-1]++;
-      }
-    });
-    // Use average per day (so days with more data don't dominate)
-    var avgs = totals.map(function(t, i){ return counts[i] ? Math.round(t / counts[i]) : 0; });
-    _buildBarChart(canvasId, days, avgs, color, 'Avg J$');
-  }
-
-  function loadSalesCharts() {
-    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
-
-    // Lunch history
-    fetch(SCRIPT_URL + '?action=getSalesHistory')
-      .then(function(r){ return r.json(); })
-      .then(function(res) {
-        if (res.result !== 'success') return;
-        var rows = res.rows || [];
-        var dates  = rows.map(function(r){ var p=r.date.split(' '); return p.length===2 ? [p[0],p[1]] : [r.date]; });
-        var totals = rows.map(function(r){ return r.total; });
-        _buildBarChart('chart-lunch-daily', dates, totals, '#1A2E6B', 'Canteen+Office J$');
-        var allProducts = {};
-        rows.forEach(function(r) {
-          Object.keys(r.products || {}).forEach(function(k) {
-            allProducts[k] = (allProducts[k] || 0) + (r.products[k] || 0);
-          });
-        });
-        var pKeys = Object.keys(allProducts);
-        if (pKeys.length) _buildDoughnutChart('chart-lunch-products', pKeys, pKeys.map(function(k){ return allProducts[k]; }));
-        _buildWeekdayChart('chart-lunch-weekday', rows, '#1A2E6B');
-      })
-      .catch(function(e){ console.error('lunch history error:', e); });
-
-    // Tuckshop history
-    if (TUCKSHOP_SCRIPT_URL === 'YOUR_TUCKSHOP_SCRIPT_URL_HERE') return;
-    fetch(TUCKSHOP_SCRIPT_URL + '?action=getSalesHistory')
-      .then(function(r){ return r.json(); })
-      .then(function(res) {
-        if (res.result !== 'success') return;
-        var rows = res.rows || [];
-        var dates  = rows.map(function(r){ var p=r.date.split(' '); return p.length===2 ? [p[0],p[1]] : [r.date]; });
-        var totals = rows.map(function(r){ return r.total; });
-        _buildBarChart('chart-tuckshop-daily', dates, totals, '#00C851', 'Tuckshop J$');
-        var allProducts = {};
-        rows.forEach(function(r) {
-          Object.keys(r.products || {}).forEach(function(k) {
-            allProducts[k] = (allProducts[k] || 0) + (r.products[k] || 0);
-          });
-        });
-        var pKeys = Object.keys(allProducts);
-        if (pKeys.length) _buildDoughnutChart('chart-tuckshop-products', pKeys, pKeys.map(function(k){ return allProducts[k]; }));
-        _buildWeekdayChart('chart-tuckshop-weekday', rows, '#00C851');
-      })
-      .catch(function(e){ console.error('tuckshop history error:', e); });
-  }
-
-  // ── ADMIN PANEL ──────────────────────────────────────────────
-  function loadAdminPanel() {
-    var container = document.getElementById('admin-items');
-    container.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:1rem;">Loading...</div>';
-    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-      container.innerHTML = '';
-      adminAddRow(); return;
-    }
-    fetch(SCRIPT_URL + '?action=getLunchTypes')
-      .then(function(r){ return r.json(); })
-      .then(function(res) {
-        container.innerHTML = '';
-        if (res.result !== 'success') { adminAddRow(); return; }
-        // Merge classTypes and officeTypes into a unified list
-        var merged = {};
-        (res.classTypes || []).forEach(function(t) {
-          merged[t.name] = { name: t.name, classPrice: t.price, officePrice: null };
-        });
-        (res.officeTypes || []).forEach(function(t) {
-          if (merged[t.name]) merged[t.name].officePrice = t.price;
-          else merged[t.name] = { name: t.name, classPrice: null, officePrice: t.price };
-        });
-        Object.values(merged).forEach(function(item) {
-          adminAddRow(item.name, item.classPrice, item.officePrice);
-        });
-        if (Object.keys(merged).length === 0) adminAddRow();
-      })
-      .catch(function() { container.innerHTML = ''; adminAddRow(); });
-  }
-
-  var adminRowCounter = 0;
-  var adminDragSrc = null;
-
-  function adminAddRow(name, classPrice, officePrice) {
-    adminRowCounter++;
-    var id = 'admin-row-' + adminRowCounter;
-    var div = document.createElement('div');
-    div.id = id;
-    div.draggable = true;
-    div.style.cssText = 'display:grid;grid-template-columns:22px 1fr 90px 90px 36px;gap:6px;align-items:center;cursor:default;';
-
-    // Drag handle
-    var handle = document.createElement('span');
-    handle.textContent = '⠿';
-    handle.title = 'Drag to reorder';
-    handle.style.cssText = 'color:var(--muted);cursor:grab;font-size:1.1rem;line-height:1;user-select:none;touch-action:none;';
-
-    var inputCss = 'font-family:\'DM Sans\',sans-serif;font-size:0.88rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.45rem 0.7rem;outline:none;width:100%;';
-    var nameInput = document.createElement('input');
-    nameInput.type = 'text'; nameInput.placeholder = 'Lunch type name';
-    nameInput.value = name || ''; nameInput.style.cssText = inputCss;
-    var cpInput = document.createElement('input');
-    cpInput.type = 'number'; cpInput.placeholder = 'Class J$';
-    cpInput.value = classPrice != null ? classPrice : '';
-    cpInput.style.cssText = inputCss;
-    cpInput.title = 'Class price (leave blank to exclude from Classes)';
-    var opInput = document.createElement('input');
-    opInput.type = 'number'; opInput.placeholder = 'Office J$';
-    opInput.value = officePrice != null ? officePrice : '';
-    opInput.style.cssText = inputCss;
-    opInput.title = 'Office price (leave blank to exclude from Office)';
-    var removeBtn = document.createElement('button');
-    removeBtn.type = 'button'; removeBtn.textContent = '✕';
-    removeBtn.style.cssText = 'background:#fdf0f0;border:1.5px solid #f5bfbf;color:#B22234;border-radius:var(--radius);padding:0.45rem 0.6rem;cursor:pointer;font-size:0.85rem;';
-    removeBtn.onclick = function() { document.getElementById(id).remove(); };
-
-    // Drag events
-    div.addEventListener('dragstart', function(e) {
-      adminDragSrc = div;
-      e.dataTransfer.effectAllowed = 'move';
-      div.style.opacity = '0.4';
-    });
-    div.addEventListener('dragend', function() {
-      div.style.opacity = '';
-      document.querySelectorAll('#admin-items > div').forEach(function(r) {
-        r.style.borderTop = '';
-      });
-    });
-    div.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      if (div !== adminDragSrc) div.style.borderTop = '2px solid var(--blue)';
-    });
-    div.addEventListener('dragleave', function() { div.style.borderTop = ''; });
-    div.addEventListener('drop', function(e) {
-      e.preventDefault();
-      div.style.borderTop = '';
-      if (adminDragSrc && adminDragSrc !== div) {
-        var container = document.getElementById('admin-items');
-        container.insertBefore(adminDragSrc, div);
-      }
-    });
-
-    div.appendChild(handle); div.appendChild(nameInput);
-    div.appendChild(cpInput); div.appendChild(opInput); div.appendChild(removeBtn);
-    document.getElementById('admin-items').appendChild(div);
-  }
-
-  async function adminSave() {
-    var statusEl = document.getElementById('admin-status');
-    var rows = [];
-    document.getElementById('admin-items').querySelectorAll('div[id^="admin-row-"]').forEach(function(row) {
-      var inputs = row.querySelectorAll('input');
-      var name   = inputs[0].value.trim();
-      var cp     = inputs[1].value !== '' ? parseFloat(inputs[1].value) : null;
-      var op     = inputs[2].value !== '' ? parseFloat(inputs[2].value) : null;
-      if (name) rows.push({ name: name, classPrice: cp, officePrice: op });
-    });
-    if (!rows.length) {
-      statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
-      statusEl.textContent = 'Please add at least one lunch type.';
-      return;
-    }
-    statusEl.style.cssText = 'display:block;background:#f0f4ff;border:1px solid #c0ccf0;color:#1A2E6B;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
-    statusEl.textContent = 'Saving...';
-    try {
-      var response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'saveLunchTypes', rows: rows }),
-        headers: { 'Content-Type': 'text/plain' }
-      });
-      var result = await response.json();
-      if (result.result === 'success') {
-        statusEl.style.cssText = 'display:block;background:#e8f5ee;border:1px solid #a8d5b8;color:#1a5c2e;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
-        statusEl.textContent = '✅ Saved! Forms will use new prices on next load.';
-        loadLunchTypes(); // refresh in-memory types
-      } else { throw new Error(result.message || JSON.stringify(result)); }
-    } catch(e) {
-      statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
-      statusEl.textContent = '❌ Error: ' + (e.message || 'Please try again.');
-    }
-  }
-
-  pendingTab = 'classes';
-
-  function closePanel(btn) {
-    var panel = btn.closest('.edit-panel');
-    if (panel) panel.classList.remove('open');
-  }
-
-</script>
-</body>
-</html>
+  if (!gradeTag) return;
+  _recalcGradeTotals(sheet, gradeTag);
+}
+
+function fixHeaders() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Tuckshop');
+  if (!sheet) return;
+  var h = ['Timestamp','Date','Class','Product','Amount','Price (J$)','Subtotal (J$)','Order Total (J$)','GradeTag','Status','Payment'];
+  sheet.getRange(1, 1, 1, h.length).setValues([h]);
+  sheet.getRange(1, 1, 1, h.length).setBackground('#1A2E6B').setFontColor('#FFFFFF').setFontWeight('bold');
+  sheet.setColumnWidth(11, 100);
+}
