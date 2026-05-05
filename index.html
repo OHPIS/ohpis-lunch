@@ -2807,15 +2807,17 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;';
     iframe.src = url;
     document.body.appendChild(iframe);
+    // Reset button after 4 seconds regardless
+    setTimeout(function() {
+      btn.textContent = label; btn.disabled = false;
+    }, 4000);
     iframe.onload = function() {
       try {
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
       } catch(e) {
-        // Fallback: open in new tab if iframe print blocked
         window.open(url, '_blank');
       }
-      btn.textContent = label; btn.disabled = false;
     };
   }
 
