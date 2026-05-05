@@ -504,6 +504,10 @@
         </div>
       </div>
       <button type="button" onclick="loadSalesSummary()" style="margin-top:0.8rem;width:100%;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:none;border:1.5px solid var(--border);border-radius:var(--radius);color:var(--muted);padding:0.5rem;cursor:pointer;">↻ Refresh</button>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+        <button type="button" onclick="printCanteenReport()" style="flex:1;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);color:#fff;padding:0.5rem;cursor:pointer;">🖨️ Print Canteen Report</button>
+        <button type="button" onclick="printTuckshopReport()" style="flex:1;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;background:var(--green);color:#fff;border:none;border-radius:var(--radius);padding:0.5rem;cursor:pointer;">🖨️ Print Tuckshop Report</button>
+      </div>
     </div>
 
     <!-- SALES HISTORY CHARTS -->
@@ -2793,6 +2797,52 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
       statusEl.textContent = '❌ Error: ' + (e.message || 'Please try again.');
     }
+  }
+
+  function _printViaIframe(url, btn, label) {
+    var old = document.getElementById('_print-iframe');
+    if (old) old.remove();
+    var iframe = document.createElement('iframe');
+    iframe.id = '_print-iframe';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    iframe.onload = function() {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch(e) {
+        // Fallback: open in new tab if iframe print blocked
+        window.open(url, '_blank');
+      }
+      btn.textContent = label; btn.disabled = false;
+    };
+  }
+
+  function printCanteenReport() {
+    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
+    var btn = event.target;
+    btn.textContent = '⏳ Generating...'; btn.disabled = true;
+    fetch(SCRIPT_URL + '?action=getPrintSummary')
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if (res.result === 'success') { _printViaIframe(res.url, btn, '🖨️ Print Canteen Report'); }
+        else { alert('Error generating report. Please try again.'); btn.textContent = '🖨️ Print Canteen Report'; btn.disabled = false; }
+      })
+      .catch(function(){ btn.textContent = '🖨️ Print Canteen Report'; btn.disabled = false; });
+  }
+
+  function printTuckshopReport() {
+    if (TUCKSHOP_SCRIPT_URL === 'YOUR_TUCKSHOP_SCRIPT_URL_HERE') return;
+    var btn = event.target;
+    btn.textContent = '⏳ Generating...'; btn.disabled = true;
+    fetch(TUCKSHOP_SCRIPT_URL + '?action=getPrintSummary')
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if (res.result === 'success') { _printViaIframe(res.url, btn, '🖨️ Print Tuckshop Report'); }
+        else { alert('Error generating report. Please try again.'); btn.textContent = '🖨️ Print Tuckshop Report'; btn.disabled = false; }
+      })
+      .catch(function(){ btn.textContent = '🖨️ Print Tuckshop Report'; btn.disabled = false; });
   }
 
   pendingTab = 'classes';
