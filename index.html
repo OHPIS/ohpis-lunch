@@ -556,7 +556,10 @@
       <div class="section-label">Today's Products</div>
       <div id="tuckshop-date-display" style="margin-bottom:0.8rem;"></div>
       <div id="tuckshop-products-display"><p class="menu-empty">No products set yet.</p></div>
-      <button type="button" class="menu-edit-btn" style="margin-top:0.8rem;width:100%;" onclick="openTuckshopEditor()">✏️ Edit Products &amp; Inventory</button>
+      <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+        <button type="button" class="menu-edit-btn" style="flex:1;" onclick="loadTuckshopProducts()">🔄 Refresh Stock</button>
+        <button type="button" class="menu-edit-btn" style="flex:1;" onclick="openTuckshopEditor()">✏️ Edit Products &amp; Inventory</button>
+      </div>
 
       <!-- EDITOR — completely outside any form tag -->
       <div class="menu-editor" id="tuckshop-editor">
@@ -1870,6 +1873,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       })
       .catch(function(err){ console.error('Tuckshop load error:', err); });
   }
+
+  // Auto-refresh stock every 60 seconds
+  setInterval(function() { loadTuckshopProducts(); }, 60000);
 
   function renderTuckshopProducts() {
     var display     = document.getElementById('tuckshop-products-display');
