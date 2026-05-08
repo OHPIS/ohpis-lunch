@@ -1902,7 +1902,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   setInterval(function() {
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    if (mins >= (7 * 60 + 30) && mins < (9 * 60 + 31)) {
+    if (devOverrideTuckshop || (mins >= (7 * 60 + 30) && mins < (9 * 60 + 31))) {
       refreshStockOnly();
     }
   }, 30000);
