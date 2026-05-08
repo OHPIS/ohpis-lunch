@@ -561,7 +561,7 @@
       <div id="tuckshop-date-display" style="margin-bottom:0.8rem;"></div>
       <div id="tuckshop-products-display"><p class="menu-empty">No products set yet.</p></div>
       <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
-        <button type="button" class="menu-edit-btn" style="flex:1;" id="tuckshop-refresh-btn" onclick="var b=this;b.textContent='⏳ Refreshing...';b.disabled=true;refreshStockOnly();setTimeout(function(){b.textContent='✅ Updated';setTimeout(function(){b.textContent='🔄 Refresh Stock';b.disabled=false;},1200);},1000);">🔄 Refresh Stock</button>
+        <button type="button" class="menu-edit-btn" style="flex:1;" id="tuckshop-refresh-btn" onclick="var b=this;b.textContent='⏳ Refreshing...';setTimeout(function(){b.textContent='✅ Updated';setTimeout(function(){b.textContent='🔄 Refresh Stock';},1200);},1000);">🔄 Refresh Stock</button>
         <button type="button" class="menu-edit-btn" style="flex:1;" onclick="openTuckshopEditor()">✏️ Edit Products &amp; Inventory</button>
       </div>
 
@@ -1898,7 +1898,14 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
       })
       .catch(function(err){ console.error('Stock refresh error:', err); });
   }
-  setInterval(refreshStockOnly, 60000);
+  // Timer: 30s during 7:30-9:31 AM Jamaica, disabled otherwise
+  setInterval(function() {
+    var t = getJamaicaHourMinute();
+    var mins = t.h * 60 + t.m;
+    if (mins >= (7 * 60 + 30) && mins < (9 * 60 + 31)) {
+      refreshStockOnly();
+    }
+  }, 30000);
 
   function renderTuckshopProducts() {
     var display     = document.getElementById('tuckshop-products-display');
@@ -2258,6 +2265,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
         statusEl.className = 'status-msg error';
         statusEl.innerHTML = '⚠️ ' + result.message;
         statusEl.style.display = 'block';
+      } else if (result.result === 'stockError') {
+        statusEl.className = 'status-msg error';
+        statusEl.innerHTML = '🚫 Not enough stock — ' + result.message;
+        statusEl.style.display = 'block';
+        refreshStockOnly();
       } else if (result.result === 'success') {
         // Use stock returned by server (authoritative), fallback to local deduction
         if (result.stock) {
