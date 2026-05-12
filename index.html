@@ -561,7 +561,7 @@
       <div id="tuckshop-date-display" style="margin-bottom:0.8rem;"></div>
       <div id="tuckshop-products-display"><p class="menu-empty">No products set yet.</p></div>
       <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
-        <button type="button" class="menu-edit-btn" style="flex:1;" id="tuckshop-refresh-btn" onclick="var b=this;b.textContent='⏳ Refreshing...';setTimeout(function(){b.textContent='✅ Updated';setTimeout(function(){b.textContent='🔄 Refresh Stock';},1200);},1000);">🔄 Refresh Stock</button>
+        <button type="button" class="menu-edit-btn" style="flex:1;" id="tuckshop-refresh-btn" onclick="var b=this;var t=getJamaicaHourMinute();var m=t.h*60+t.m;b.textContent='⏳ Refreshing...';if(m>=(9*60+35)){refreshStockOnly();}setTimeout(function(){b.textContent='✅ Updated';setTimeout(function(){b.textContent='🔄 Refresh Stock';},1200);},1000);">🔄 Refresh Stock</button>
         <button type="button" class="menu-edit-btn" style="flex:1;" onclick="openTuckshopEditor()">✏️ Edit Products &amp; Inventory</button>
       </div>
 
