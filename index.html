@@ -1300,9 +1300,8 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
           if (!ok) {
             menuWarn.style.display = 'block';
             priceSel.value = '';
-            priceSel.style.pointerEvents = '';
-            priceSel.style.background = '';
-            priceSel.style.cursor = '';
+            _lockPriceSel(priceSel);
+            priceSel.style.borderColor = '#f5bfbf';
             calcGrand(prefix);
             return;
           }
