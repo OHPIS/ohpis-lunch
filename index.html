@@ -1084,7 +1084,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
     var open  = 7 * 60 + 30;
-    var close = isInfantClass(cls) ? (9 * 60 + 30) : (9 * 60);
+    var close = isInfantClass(cls) ? (9 * 60 + 30) : (9 * 60+30);
     return mins >= open && mins < close;
   }
 
