@@ -2200,8 +2200,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     document.getElementById('t-items').querySelectorAll('.item-row').forEach(function(row) {
       var sel   = row.querySelector('select');
       var input = row.querySelector('input[type="number"]');
-      var name  = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
-      var price = parseFloat(sel.value) || 0;
+     // DESPUÉS:
+var name  = sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].text : '';
+var price = parseFloat(sel.value) || 0;
       var amt   = parseFloat(input.value) || 0;
       sel.style.borderColor   = name  ? '' : '#B22234';
       input.style.borderColor = amt>0 ? '' : '#B22234';
