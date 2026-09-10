@@ -795,6 +795,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
 function loadMenuDisplay() {
+    document.getElementById('menu-display').innerHTML = '<p class="menu-empty">⏳ Cargando menú…</p>';
     // Load from Google Sheet
         fetchWithRetry(SCRIPT_URL + '?action=getMenu')
       .then(function(r) { return r.json(); })
@@ -1874,6 +1875,7 @@ function loadMenuDisplay() {
   }
 
   function loadTuckshopProducts() {
+    document.getElementById('tuckshop-products-display').innerHTML = '<p class="menu-empty">⏳ Cargando productos…</p>';
     if (TUCKSHOP_SCRIPT_URL === "YOUR_TUCKSHOP_SCRIPT_URL_HERE") {
       // Demo mode — no products until staff sets them
       renderTuckshopProducts();
