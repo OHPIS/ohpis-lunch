@@ -797,7 +797,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 function loadMenuDisplay() {
     document.getElementById('menu-display').innerHTML = '<p class="menu-empty">⏳ Cargando menú…</p>';
     // Load from Google Sheet
-        fetchWithRetry(SCRIPT_URL + '?action=getMenu')
+            fetchWithRetry(SCRIPT_URL + '?action=getMenu&_=' + Date.now())
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (res.result === 'success' && res.menu) {
@@ -1881,7 +1881,7 @@ function loadMenuDisplay() {
       renderTuckshopProducts();
       return;
     }
-        fetchWithRetry(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
+        fetchWithRetry(TUCKSHOP_SCRIPT_URL + '?action=getProducts&_=' + Date.now())
       .then(function(r){ return r.json(); })
       .then(function(res){
         if (res.result === 'success') {
@@ -2513,7 +2513,7 @@ var price = parseFloat(sel.value) || 0;
   // ── Load lunch types and prices from GS ──────────────────────
   function loadLunchTypes() {
     if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
-        fetchWithRetry(SCRIPT_URL + '?action=getLunchTypes')
+            fetchWithRetry(SCRIPT_URL + '?action=getLunchTypes&_=' + Date.now())
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (res.result !== 'success') return;
