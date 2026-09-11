@@ -1063,7 +1063,7 @@ function loadMenuDisplay() {
     var tDateEl   = document.getElementById('t-date');
     if (tDateEl) tDateEl.value = getJamaicaToday();
     if (!open) {
-      var inWindow = (function(){ var t = getJamaicaHourMinute(); var m = t.h*60+t.m; return m >= (7*60+30) && m < (9*60+30); })();
+      var inWindow = (function(){ var t = getJamaicaHourMinute(); var m = t.h*60+t.m; return m >= (7*60) && m < (9*60+30); })();
       if (lockMsg)   lockMsg.style.display = 'block';
       if (lockText)  lockText.textContent = (inWindow && (!tuckshopDate || tuckshopDate !== getJamaicaToday()))
         ? '⚠️ Tuckshop menu is not updated for today. Please update the menu to enable orders.'
