@@ -1067,7 +1067,7 @@ function loadMenuDisplay() {
       if (lockMsg)   lockMsg.style.display = 'block';
       if (lockText)  lockText.textContent = (inWindow && (!tuckshopDate || tuckshopDate !== getJamaicaToday()))
         ? '⚠️ Tuckshop menu is not updated for today. Please update the menu to enable orders.'
-        : '🔒 Tuckshop orders accepted 7:00 AM – 9:30 AM only.';
+        : '🔒 Tuckshop orders accepted 7:30 AM – 9:30 AM only.';
       if (submitBtn) { submitBtn.disabled = true;  submitBtn.style.background = '#8f9dc7'; }
       if (addRowBtn) addRowBtn.disabled = true;
       if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
@@ -1100,7 +1100,7 @@ function loadMenuDisplay() {
     if (devOverride) return true;
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    var open  = 7 * 60 ;
+    var open  = 7 * 60;
     var close = isInfantClass(cls) ? (9 * 60 + 30) : (9 * 60);
     return mins >= open && mins < close;
   }
@@ -1133,10 +1133,10 @@ function loadMenuDisplay() {
     if (!open) {
       var closeTime = isInfantClass(cls) ? '9:30 AM' : '9:00 AM';
       lockText.textContent = cls === ''
-        ? 'Orders accepted 7:00 AM – 9:00 AM (Infant classes until 9:30 AM).'
+        ? 'Orders accepted 7:30 AM – 9:00 AM (Infant classes until 9:30 AM).'
         : isInfantClass(cls)
-          ? 'Infant orders accepted 7:00 AM – 9:30 AM only.'
-          : 'Class orders accepted 7:00 AM – 9:00 AM only.';
+          ? 'Infant orders accepted 7:30 AM – 9:30 AM only.'
+          : 'Class orders accepted 7:30 AM – 9:00 AM only.';
       if (lockMsg)      lockMsg.style.display   = 'block';
       if (submitBtn)    { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
       if (addBtn)       addBtn.disabled = true;
@@ -1918,7 +1918,7 @@ function loadMenuDisplay() {
   setInterval(function() {
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    if (devOverrideTuckshop || (mins >= (7 * 60 + 30) && mins < (9 * 60 + 40))) {
+    if (devOverrideTuckshop || (mins >= (7 * 60) && mins < (9 * 60 + 40))) {
       refreshStockOnly();
     }
   }, 30000);
