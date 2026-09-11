@@ -777,27 +777,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     setTimeout(function() { loadTuckshopProducts(); }, 400);
   });
 
-    // Reintenta una petición fetch varias veces antes de rendirse
-  function fetchWithRetry(url, options, retries, delayMs) {
-    retries  = retries  === undefined ? 3 : retries;
-    delayMs  = delayMs  === undefined ? 1200 : delayMs;
-    return fetch(url, options).then(function(r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r;
-    }).catch(function(err) {
-      if (retries <= 0) throw err;
-      return new Promise(function(resolve) {
-        setTimeout(resolve, delayMs);
-      }).then(function() {
-        return fetchWithRetry(url, options, retries - 1, delayMs);
-      });
-    });
-  }
-
-function loadMenuDisplay() {
-    document.getElementById('menu-display').innerHTML = '<p class="menu-empty">⏳ Cargando menú…</p>';
+  function loadMenuDisplay() {
     // Load from Google Sheet
-                fetchWithRetry(SCRIPT_URL + '?action=getMenu')
+    fetch(SCRIPT_URL + '?action=getMenu')
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (res.result === 'success' && res.menu) {
@@ -1875,13 +1857,12 @@ function loadMenuDisplay() {
   }
 
   function loadTuckshopProducts() {
-    document.getElementById('tuckshop-products-display').innerHTML = '<p class="menu-empty">⏳ Cargando productos…</p>';
     if (TUCKSHOP_SCRIPT_URL === "YOUR_TUCKSHOP_SCRIPT_URL_HERE") {
       // Demo mode — no products until staff sets them
       renderTuckshopProducts();
       return;
     }
-            fetchWithRetry(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
+    fetch(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
       .then(function(r){ return r.json(); })
       .then(function(res){
         if (res.result === 'success') {
@@ -2513,7 +2494,7 @@ var price = parseFloat(sel.value) || 0;
   // ── Load lunch types and prices from GS ──────────────────────
   function loadLunchTypes() {
     if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
-                fetchWithRetry(SCRIPT_URL + '?action=getLunchTypes')
+    fetch(SCRIPT_URL + '?action=getLunchTypes')
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (res.result !== 'success') return;
