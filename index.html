@@ -296,7 +296,7 @@
     <div class="card">
       <form id="classForm" novalidate>
         <div id="c-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
-          🔒 <span id="c-lock-text">Class orders are closed. Orders accepted 7:30 AM – 9:00 AM.</span>
+          🔒 <span id="c-lock-text">Class orders are closed. Orders accepted 7:00 AM – 9:00 AM.</span>
         </div>
         <div class="section-label">Class Lunch Order</div>
         <div class="form-grid">
@@ -602,7 +602,7 @@
     <div class="card">
       <div class="section-label">Class Tuckshop Order</div>
       <div id="tuckshop-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
-        <span id="tuckshop-lock-text">🔒 Tuckshop orders accepted 7:30 AM – 9:30 AM only.</span>
+        <span id="tuckshop-lock-text">🔒 Tuckshop orders accepted 7:00 AM – 9:30 AM only.</span>
       </div>
       <form id="tuckshopForm" novalidate>
         <div class="form-grid">
@@ -777,26 +777,9 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
     setTimeout(function() { loadTuckshopProducts(); }, 400);
   });
 
-    // Reintenta una petición fetch varias veces antes de rendirse
-  function fetchWithRetry(url, options, retries, delayMs) {
-    retries  = retries  === undefined ? 3 : retries;
-    delayMs  = delayMs  === undefined ? 1200 : delayMs;
-    return fetch(url, options).then(function(r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r;
-    }).catch(function(err) {
-      if (retries <= 0) throw err;
-      return new Promise(function(resolve) {
-        setTimeout(resolve, delayMs);
-      }).then(function() {
-        return fetchWithRetry(url, options, retries - 1, delayMs);
-      });
-    });
-  }
-
-function loadMenuDisplay() {
+  function loadMenuDisplay() {
     // Load from Google Sheet
-                fetchWithRetry(SCRIPT_URL + '?action=getMenu')
+    fetch(SCRIPT_URL + '?action=getMenu')
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (res.result === 'success' && res.menu) {
@@ -1050,7 +1033,7 @@ function loadMenuDisplay() {
     if (!tuckshopDate || tuckshopDate !== getJamaicaToday()) return false;
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    return mins >= (7 * 60) && mins < (9 * 60 + 30);
+    return mins >= (7 * 60 ) && mins < (9 * 60 + 30);
   }
 
   function applyTuckshopTimeLock() {
@@ -1067,7 +1050,7 @@ function loadMenuDisplay() {
       if (lockMsg)   lockMsg.style.display = 'block';
       if (lockText)  lockText.textContent = (inWindow && (!tuckshopDate || tuckshopDate !== getJamaicaToday()))
         ? '⚠️ Tuckshop menu is not updated for today. Please update the menu to enable orders.'
-        : '🔒 Tuckshop orders accepted 7:30 AM – 9:30 AM only.';
+        : '🔒 Tuckshop orders accepted 7:00 AM – 9:30 AM only.';
       if (submitBtn) { submitBtn.disabled = true;  submitBtn.style.background = '#8f9dc7'; }
       if (addRowBtn) addRowBtn.disabled = true;
       if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
@@ -1100,7 +1083,7 @@ function loadMenuDisplay() {
     if (devOverride) return true;
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    var open  = 7 * 60;
+    var open  = 7 * 60 ;
     var close = isInfantClass(cls) ? (9 * 60 + 30) : (9 * 60);
     return mins >= open && mins < close;
   }
@@ -1133,10 +1116,10 @@ function loadMenuDisplay() {
     if (!open) {
       var closeTime = isInfantClass(cls) ? '9:30 AM' : '9:00 AM';
       lockText.textContent = cls === ''
-        ? 'Orders accepted 7:30 AM – 9:00 AM (Infant classes until 9:30 AM).'
+        ? 'Orders accepted 7:00 AM – 9:00 AM (Infant classes until 9:30 AM).'
         : isInfantClass(cls)
-          ? 'Infant orders accepted 7:30 AM – 9:30 AM only.'
-          : 'Class orders accepted 7:30 AM – 9:00 AM only.';
+          ? 'Infant orders accepted 7:00 AM – 9:30 AM only.'
+          : 'Class orders accepted 7:00 AM – 9:00 AM only.';
       if (lockMsg)      lockMsg.style.display   = 'block';
       if (submitBtn)    { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
       if (addBtn)       addBtn.disabled = true;
@@ -1879,7 +1862,7 @@ function loadMenuDisplay() {
       renderTuckshopProducts();
       return;
     }
-            fetchWithRetry(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
+    fetch(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
       .then(function(r){ return r.json(); })
       .then(function(res){
         if (res.result === 'success') {
@@ -1914,11 +1897,11 @@ function loadMenuDisplay() {
       })
       .catch(function(err){ console.error('Stock refresh error:', err); });
   }
-  // Timer: 30s during 7:30-9:31 AM Jamaica, disabled otherwise
+  // Timer: 30s during 7:00-9:31 AM Jamaica, disabled otherwise
   setInterval(function() {
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    if (devOverrideTuckshop || (mins >= (7 * 60) && mins < (9 * 60 + 40))) {
+    if (devOverrideTuckshop || (mins >= (7 * 60 ) && mins < (9 * 60 + 30))) {
       refreshStockOnly();
     }
   }, 30000);
@@ -2511,7 +2494,7 @@ var price = parseFloat(sel.value) || 0;
   // ── Load lunch types and prices from GS ──────────────────────
   function loadLunchTypes() {
     if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
-                fetchWithRetry(SCRIPT_URL + '?action=getLunchTypes')
+    fetch(SCRIPT_URL + '?action=getLunchTypes')
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (res.result !== 'success') return;
