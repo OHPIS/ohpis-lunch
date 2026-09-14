@@ -889,23 +889,23 @@ function _sheetsApiGet(sheetId, range) {
 
   var pendingMenuAction = false;
 
-  function toggleEditor() {
+    function toggleEditor() {
     var editor = document.getElementById('menu-editor');
     var isOpen = editor.classList.contains('open');
     if (!isOpen) {
       document.getElementById('menu-date-input').value = today;
       document.getElementById('menu-rows').innerHTML = '';
       menuRowCounter = 0;
-      // Load current menu from Sheet to pre-populate editor
-      fetch(SCRIPT_URL + '?action=getMenu')
-        .then(function(r) { return r.json(); })
-        .then(function(res) {
-          if (res.result === 'success' && res.menu && res.menu.items) {
-            res.menu.items.forEach(function(item) { addMenuRow(item.name, item.price); });
-            document.getElementById('menu-note-input').value = res.menu.note || '';
-            // Set date
-            var dateStr = res.menu.date;
-            if (dateStr) document.getElementById('menu-date-input').value = dateStr;
+      // Load current menu via Sheets API to pre-populate editor
+      _sheetsApiGet(LUNCH_SHEET_ID, 'Menu!A1:D100')
+        .then(function(rows) {
+          if (rows.length > 1) {
+            for (var i = 1; i < rows.length; i++) {
+              var row = rows[i];
+              if (row[1]) addMenuRow(row[1], row[2]);
+            }
+            document.getElementById('menu-note-input').value = rows[1][3] || '';
+            if (rows[1][0]) document.getElementById('menu-date-input').value = rows[1][0];
           } else {
             addMenuRow();
           }
@@ -2708,27 +2708,21 @@ var price = parseFloat(sel.value) || 0;
   }
 
   // ── ADMIN PANEL ──────────────────────────────────────────────
-  function loadAdminPanel() {
+    function loadAdminPanel() {
     var container = document.getElementById('admin-items');
     container.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;text-align:center;padding:1rem;">Loading...</div>';
-    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-      container.innerHTML = '';
-      adminAddRow(); return;
-    }
-    fetch(SCRIPT_URL + '?action=getLunchTypes')
-      .then(function(r){ return r.json(); })
-      .then(function(res) {
+    _sheetsApiGet(LUNCH_SHEET_ID, 'LunchTypes!A1:C100')
+      .then(function(rows) {
         container.innerHTML = '';
-        if (res.result !== 'success') { adminAddRow(); return; }
-        // Merge classTypes and officeTypes into a unified list
+        if (rows.length <= 1) { adminAddRow(); return; }
         var merged = {};
-        (res.classTypes || []).forEach(function(t) {
-          merged[t.name] = { name: t.name, classPrice: t.price, officePrice: null };
-        });
-        (res.officeTypes || []).forEach(function(t) {
-          if (merged[t.name]) merged[t.name].officePrice = t.price;
-          else merged[t.name] = { name: t.name, classPrice: null, officePrice: t.price };
-        });
+        for (var i = 1; i < rows.length; i++) {
+          var name = rows[i][0];
+          if (!name) continue;
+          var cp = rows[i][1] !== undefined && rows[i][1] !== '' ? parseFloat(rows[i][1]) : null;
+          var op = rows[i][2] !== undefined && rows[i][2] !== '' ? parseFloat(rows[i][2]) : null;
+          merged[name] = { name: name, classPrice: cp, officePrice: op };
+        }
         Object.values(merged).forEach(function(item) {
           adminAddRow(item.name, item.classPrice, item.officePrice);
         });
