@@ -778,12 +778,18 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   });
 
   function loadMenuDisplay() {
-    // Load from Google Sheet
-    fetch(SCRIPT_URL + '?action=getMenu')
+    fetch(SCRIPT_URL + '?action=getMenuAndTypes')
       .then(function(r) { return r.json(); })
       .then(function(res) {
-        if (res.result === 'success' && res.menu) {
-          renderMenu(res.menu);
+        if (res.result === 'success') {
+          if (res.menu) renderMenu(res.menu);
+          LUNCH_TYPES_CLASS  = res.classTypes  || [];
+          LUNCH_TYPES_OFFICE = res.officeTypes || [];
+          ['c','o'].forEach(function(p) {
+            var items = document.getElementById(p + '-items');
+            if (items) items.innerHTML = '';
+            addRow(p);
+          });
         }
       })
       .catch(function(err) { console.error('Menu load error:', err); });
@@ -2492,25 +2498,7 @@ var price = parseFloat(sel.value) || 0;
   }
 
   // ── Load lunch types and prices from GS ──────────────────────
-  function loadLunchTypes() {
-    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
-    fetch(SCRIPT_URL + '?action=getLunchTypes')
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result !== 'success') return;
-        LUNCH_TYPES_CLASS  = res.classTypes  || [];
-        LUNCH_TYPES_OFFICE = res.officeTypes || [];
-        // Refresh any existing rows in open forms
-        ['c','o'].forEach(function(p) {
-          var items = document.getElementById(p + '-items');
-          if (items) items.innerHTML = '';
-          addRow(p);
-        });
-      })
-      .catch(function(e) { console.error('loadLunchTypes error:', e); });
-  }
-  loadLunchTypes();
-
+  
   // ── Sales History Charts ─────────────────────────────────────
   var _chartInstances = {};
 
@@ -2803,7 +2791,7 @@ var price = parseFloat(sel.value) || 0;
       if (result.result === 'success') {
         statusEl.style.cssText = 'display:block;background:#e8f5ee;border:1px solid #a8d5b8;color:#1a5c2e;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
         statusEl.textContent = '✅ Saved! Forms will use new prices on next load.';
-        loadLunchTypes(); // refresh in-memory types
+        loadMenuDisplay(); // refresh in-memory types (via combined endpoint)
       } else { throw new Error(result.message || JSON.stringify(result)); }
     } catch(e) {
       statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
