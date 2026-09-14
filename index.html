@@ -780,19 +780,29 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   function loadMenuDisplay() {
     fetch(SCRIPT_URL + '?action=getMenuAndTypes')
       .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result === 'success') {
-          if (res.menu) renderMenu(res.menu);
-          LUNCH_TYPES_CLASS  = res.classTypes  || [];
-          LUNCH_TYPES_OFFICE = res.officeTypes || [];
-          ['c','o'].forEach(function(p) {
-            var items = document.getElementById(p + '-items');
-            if (items) items.innerHTML = '';
-            addRow(p);
-          });
-        }
-      })
-      .catch(function(err) { console.error('Menu load error:', err); });
+      .then(function(res) { _applyMenuAndTypes(res); })
+      .catch(function() {
+        // Un solo reintento, tras una pausa de 2 segundos
+        setTimeout(function() {
+          fetch(SCRIPT_URL + '?action=getMenuAndTypes')
+            .then(function(r) { return r.json(); })
+            .then(function(res) { _applyMenuAndTypes(res); })
+            .catch(function(err) { console.error('Menu load error (after retry):', err); });
+        }, 2000);
+      });
+  }
+
+  function _applyMenuAndTypes(res) {
+    if (res.result === 'success') {
+      if (res.menu) renderMenu(res.menu);
+      LUNCH_TYPES_CLASS  = res.classTypes  || [];
+      LUNCH_TYPES_OFFICE = res.officeTypes || [];
+      ['c','o'].forEach(function(p) {
+        var items = document.getElementById(p + '-items');
+        if (items) items.innerHTML = '';
+        addRow(p);
+      });
+    }
   }
 
   var todayMenuItems = [];
