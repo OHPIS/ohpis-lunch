@@ -751,6 +751,18 @@
   var PW_ADMIN         = 'admin2026';
 
 const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEbyjkhmY3jUI-vsDrPDV-jXn0SgvXTO1z_zYf4r-_zvKSSepwRDecIlBeDGg/exec";
+const SHEETS_API_KEY = "AIzaSyDdn-YO6T4PFqni6SIiW4ZYgRtvTxjTr4s";
+const LUNCH_SHEET_ID = "18ujuTiMZr8QZNc3E2alBekqDFCbIppraG_Jdp-3rgl8";
+const TUCKSHOP_SHEET_ID = "1VKcGiWmghozPl0iKor4ggkU_Op_epZuBKVwuSqyPB-0";
+
+function _sheetsApiGet(sheetId, range) {
+  var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId +
+             '/values/' + encodeURIComponent(range) + '?key=' + SHEETS_API_KEY;
+  return fetch(url).then(function(r) {
+    if (!r.ok) throw new Error('Sheets API error: ' + r.status);
+    return r.json();
+  }).then(function(data) { return data.values || []; });
+}
   var tuckshopProducts    = [];
   var tuckshopStock      = { 'Beef Patty': 0, 'Cheese Patty': 0, 'Chicken Patty': 0 };
   var tuckshopDate        = '';
@@ -778,15 +790,41 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   });
 
   function loadMenuDisplay() {
-    // Load from Google Sheet
-    fetch(SCRIPT_URL + '?action=getMenu')
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result === 'success' && res.menu) {
-          renderMenu(res.menu);
+    Promise.all([
+      _sheetsApiGet(LUNCH_SHEET_ID, 'Menu!A1:Z100'),
+      _sheetsApiGet(LUNCH_SHEET_ID, 'LunchTypes!A1:Z100')
+    ]).then(function(results) {
+      var menuRows = results[0];
+      var typesRows = results[1];
+
+      if (menuRows.length > 1) {
+        var items = [];
+        for (var i = 1; i < menuRows.length; i++) {
+          var row = menuRows[i];
+          if (row[1]) items.push({ name: row[1], price: row[2] });
         }
-      })
-      .catch(function(err) { console.error('Menu load error:', err); });
+        var menu = { date: menuRows[1][0], items: items, note: menuRows[1][3] || '' };
+        renderMenu(menu);
+      }
+
+      var classTypes = [], officeTypes = [];
+      for (var j = 1; j < typesRows.length; j++) {
+        var r = typesRows[j];
+        var name = r[0];
+        if (!name) continue;
+        if (r[1] !== undefined && r[1] !== '') classTypes.push({ name: name, price: parseFloat(r[1]) });
+        if (r[2] !== undefined && r[2] !== '') officeTypes.push({ name: name, price: parseFloat(r[2]) });
+      }
+      LUNCH_TYPES_CLASS  = classTypes;
+      LUNCH_TYPES_OFFICE = officeTypes;
+      ['c','o'].forEach(function(p) {
+        var itemsEl = document.getElementById(p + '-items');
+        if (itemsEl) itemsEl.innerHTML = '';
+        addRow(p);
+      });
+    }).catch(function(err) {
+      console.error('Menu/types load error (Sheets API):', err);
+    });
   }
 
   var todayMenuItems = [];
@@ -1857,45 +1895,53 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
   function loadTuckshopProducts() {
-    if (TUCKSHOP_SCRIPT_URL === "YOUR_TUCKSHOP_SCRIPT_URL_HERE") {
-      // Demo mode — no products until staff sets them
-      renderTuckshopProducts();
-      return;
-    }
-    fetch(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
-      .then(function(r){ return r.json(); })
-      .then(function(res){
-        if (res.result === 'success') {
-          tuckshopProducts = res.products || [];
-          tuckshopStock    = res.stock    || {};
-          // Clean date exactly like renderMenu does — strip apostrophes, take first 10 chars
-          var rawDate = String(res.date || '');
-          tuckshopDate = rawDate.replace(/'/g, '').trim().substring(0, 10);
-          renderTuckshopProducts();
+    _sheetsApiGet(TUCKSHOP_SHEET_ID, 'TuckshopMenu!A1:Z100')
+      .then(function(rows) {
+        if (rows.length <= 1) { renderTuckshopProducts(); return; }
+
+        var products = [];
+        var stock = {};
+        var date = rows[1][0] || '';
+
+        for (var i = 1; i < rows.length; i++) {
+          var row = rows[i];
+          var name  = row[1];
+          var price = row[2];
+          var stk   = row[3];
+          if (!name) continue;
+          products.push({ name: name, price: price });
+          if (stk !== undefined && stk !== '') stock[name] = parseInt(stk) || 0;
         }
+
+        tuckshopProducts = products;
+        tuckshopStock    = stock;
+        tuckshopDate     = String(date).replace(/'/g, '').trim().substring(0, 10);
+
+        renderTuckshopProducts();
       })
-      .catch(function(err){ console.error('Tuckshop load error:', err); });
+      .catch(function(err){ console.error('Tuckshop load error (Sheets API):', err); });
   }
 
   // Auto-refresh: solo actualiza el countdown de patties sin tocar el form
   function refreshStockOnly() {
-    if (TUCKSHOP_SCRIPT_URL === "YOUR_TUCKSHOP_SCRIPT_URL_HERE") return;
-    fetch(TUCKSHOP_SCRIPT_URL + '?action=getProducts')
-      .then(function(r){ return r.json(); })
-      .then(function(res){
-        if (res.result === 'success') {
-          tuckshopStock = res.stock || {};
-          // Solo actualizar los chips de stock en el panel, sin tocar el form
-          var chips = document.querySelectorAll('.menu-item-chip .menu-item-name');
-          chips.forEach(function(chip) {
-            var name = chip.textContent.replace(/\s*\(\d+ left\)/, '').trim();
-            if ((name === 'Beef Patty' || name === 'Cheese Patty' || name === 'Chicken Patty') && tuckshopStock[name] !== undefined) {
-              chip.innerHTML = name + ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock[name] + ' left)</span>';
-            }
-          });
+    _sheetsApiGet(TUCKSHOP_SHEET_ID, 'TuckshopMenu!A1:D100')
+      .then(function(rows) {
+        var stock = {};
+        for (var i = 1; i < rows.length; i++) {
+          var name = rows[i][1];
+          var stk  = rows[i][3];
+          if (name && stk !== undefined && stk !== '') stock[name] = parseInt(stk) || 0;
         }
+        tuckshopStock = stock;
+        var chips = document.querySelectorAll('.menu-item-chip .menu-item-name');
+        chips.forEach(function(chip) {
+          var name = chip.textContent.replace(/\s*\(\d+ left\)/, '').trim();
+          if ((name === 'Beef Patty' || name === 'Cheese Patty' || name === 'Chicken Patty') && tuckshopStock[name] !== undefined) {
+            chip.innerHTML = name + ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock[name] + ' left)</span>';
+          }
+        });
       })
-      .catch(function(err){ console.error('Stock refresh error:', err); });
+      .catch(function(err){ console.error('Stock refresh error (Sheets API):', err); });
   }
   // Timer: 30s during 7:00-9:31 AM Jamaica, disabled otherwise
   setInterval(function() {
@@ -2491,25 +2537,8 @@ var price = parseFloat(sel.value) || 0;
     } else { tuckshopEl.textContent = '—'; }
   }
 
-  // ── Load lunch types and prices from GS ──────────────────────
-  function loadLunchTypes() {
-    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
-    fetch(SCRIPT_URL + '?action=getLunchTypes')
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result !== 'success') return;
-        LUNCH_TYPES_CLASS  = res.classTypes  || [];
-        LUNCH_TYPES_OFFICE = res.officeTypes || [];
-        // Refresh any existing rows in open forms
-        ['c','o'].forEach(function(p) {
-          var items = document.getElementById(p + '-items');
-          if (items) items.innerHTML = '';
-          addRow(p);
-        });
-      })
-      .catch(function(e) { console.error('loadLunchTypes error:', e); });
-  }
-  loadLunchTypes();
+  // Note: lunch types are now loaded together with the menu inside
+  // loadMenuDisplay() via the Sheets API — no separate call needed here.
 
   // ── Sales History Charts ─────────────────────────────────────
   var _chartInstances = {};
@@ -2803,7 +2832,7 @@ var price = parseFloat(sel.value) || 0;
       if (result.result === 'success') {
         statusEl.style.cssText = 'display:block;background:#e8f5ee;border:1px solid #a8d5b8;color:#1a5c2e;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
         statusEl.textContent = '✅ Saved! Forms will use new prices on next load.';
-        loadLunchTypes(); // refresh in-memory types
+        loadMenuDisplay(); // refresh in-memory types (via Sheets API)
       } else { throw new Error(result.message || JSON.stringify(result)); }
     } catch(e) {
       statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
