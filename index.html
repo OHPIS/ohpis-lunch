@@ -778,15 +778,18 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   });
 
   function loadMenuDisplay() {
-    // Load from Google Sheet
-    fetch(SCRIPT_URL + '?action=getMenu')
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.result === 'success' && res.menu) {
-          renderMenu(res.menu);
-        }
-      })
-      .catch(function(err) { console.error('Menu load error:', err); });
+    fetch(GITHUB_RAW_BASE + 'menu.json')
+      .then(function(r) { if (!r.ok) throw new Error('not found'); return r.json(); })
+      .then(function(menu) { renderMenu(menu); })
+      .catch(function() {
+        // Respaldo: si GitHub falla, usar Google Sheet
+        fetch(SCRIPT_URL + '?action=getMenu')
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (res.result === 'success' && res.menu) renderMenu(res.menu);
+          })
+          .catch(function(err) { console.error('Menu load error:', err); });
+      });
   }
 
   var todayMenuItems = [];
@@ -991,7 +994,7 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 
 
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx45OkW-9QXuWs6wQF8GZiHh-v8kBX0OxN7qBvynGJ72JIK80f91GYzeK0CbFp3knBp/exec";
-
+  const GITHUB_RAW_BASE = "https://raw.githubusercontent.com/OHPIS/ohpis-lunch/main/data/";
   var LUNCH_TYPES_CLASS  = [];
   var LUNCH_TYPES_OFFICE = [];
   // PRICES kept as fallback but auto-filled from GS
@@ -2492,22 +2495,35 @@ var price = parseFloat(sel.value) || 0;
   }
 
   // ── Load lunch types and prices from GS ──────────────────────
-  function loadLunchTypes() {
-    if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
-    fetch(SCRIPT_URL + '?action=getLunchTypes')
-      .then(function(r) { return r.json(); })
+    function loadLunchTypes() {
+    fetch(GITHUB_RAW_BASE + 'lunchtypes.json')
+      .then(function(r) { if (!r.ok) throw new Error('not found'); return r.json(); })
       .then(function(res) {
-        if (res.result !== 'success') return;
         LUNCH_TYPES_CLASS  = res.classTypes  || [];
         LUNCH_TYPES_OFFICE = res.officeTypes || [];
-        // Refresh any existing rows in open forms
         ['c','o'].forEach(function(p) {
           var items = document.getElementById(p + '-items');
           if (items) items.innerHTML = '';
           addRow(p);
         });
       })
-      .catch(function(e) { console.error('loadLunchTypes error:', e); });
+      .catch(function() {
+        // Respaldo: si GitHub falla, usar Google Sheet
+        if (SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
+        fetch(SCRIPT_URL + '?action=getLunchTypes')
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (res.result !== 'success') return;
+            LUNCH_TYPES_CLASS  = res.classTypes  || [];
+            LUNCH_TYPES_OFFICE = res.officeTypes || [];
+            ['c','o'].forEach(function(p) {
+              var items = document.getElementById(p + '-items');
+              if (items) items.innerHTML = '';
+              addRow(p);
+            });
+          })
+          .catch(function(e) { console.error('loadLunchTypes error:', e); });
+      });
   }
   loadLunchTypes();
 
