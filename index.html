@@ -786,11 +786,11 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
   }
 
   function loadMenuDisplay() {
-    _fetchWithTimeout(SCRIPT_URL + '?action=getMenuAndTypes', 5000)
+    _fetchWithTimeout(SCRIPT_URL + '?action=getMenuAndTypes', 8000)
       .then(function(res) { _applyMenuAndTypes(res); })
       .catch(function() {
         // Falló o tardó más de 5 segundos → reintentar de inmediato
-        _fetchWithTimeout(SCRIPT_URL + '?action=getMenuAndTypes', 5000)
+        _fetchWithTimeout(SCRIPT_URL + '?action=getMenuAndTypes', 8000)
           .then(function(res) { _applyMenuAndTypes(res); })
           .catch(function(err) { console.error('Menu load error (after retry):', err); });
       });
