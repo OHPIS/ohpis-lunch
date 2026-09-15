@@ -763,6 +763,34 @@ function _sheetsApiGet(sheetId, range) {
     return r.json();
   }).then(function(data) { return data.values || []; });
 }
+
+// Replica el mismo cálculo que hacía el Apps Script: stock inicial menos
+// la suma de patties ya pedidos hoy (filas TOTALS no canceladas).
+function _computeAvailableStock(initialStock) {
+  var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+  var stock = {};
+  for (var k in initialStock) stock[k] = initialStock[k];
+  return _sheetsApiGet(TUCKSHOP_SHEET_ID, 'Tuckshop!A1:J3000').then(function(rows) {
+    for (var i = 1; i < rows.length; i++) {
+      var row = rows[i];
+      if (String(row[0] || '').trim() !== 'TOTALS') continue;
+      if (String(row[9] || '').trim() === 'Cancelled') continue;
+      var line = String(row[3] || '').trim();
+      if (!line) continue;
+      line.split('|').forEach(function(part) {
+        part = part.trim();
+        var m = part.match(/^(.+):\s*(\d+)$/);
+        if (!m) return;
+        var pName = m[1].trim();
+        var qty   = parseInt(m[2]) || 0;
+        if (PATTY_TYPES.indexOf(pName) !== -1 && stock[pName] !== undefined) {
+          stock[pName] = Math.max(0, stock[pName] - qty);
+        }
+      });
+    }
+    return stock;
+  });
+}
   var tuckshopProducts    = [];
   var tuckshopStock      = { 'Beef Patty': 0, 'Cheese Patty': 0, 'Chicken Patty': 0 };
   var tuckshopDate        = '';
@@ -1895,12 +1923,13 @@ function _sheetsApiGet(sheetId, range) {
   }
 
   function loadTuckshopProducts() {
+    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
     _sheetsApiGet(TUCKSHOP_SHEET_ID, 'TuckshopMenu!A1:Z100')
       .then(function(rows) {
         if (rows.length <= 1) { renderTuckshopProducts(); return; }
 
         var products = [];
-        var stock = {};
+        var initialStock = {};
         var date = rows[1][0] || '';
 
         for (var i = 1; i < rows.length; i++) {
@@ -1910,28 +1939,38 @@ function _sheetsApiGet(sheetId, range) {
           var stk   = row[3];
           if (!name) continue;
           products.push({ name: name, price: price });
-          if (stk !== undefined && stk !== '') stock[name] = parseInt(stk) || 0;
+          if (PATTY_TYPES.indexOf(name) !== -1 && stk !== undefined && stk !== '') {
+            initialStock[name] = parseInt(stk) || 0;
+          }
         }
 
         tuckshopProducts = products;
-        tuckshopStock    = stock;
         tuckshopDate     = String(date).replace(/'/g, '').trim().substring(0, 10);
 
-        renderTuckshopProducts();
+        return _computeAvailableStock(initialStock).then(function(stock) {
+          tuckshopStock = stock;
+          renderTuckshopProducts();
+        });
       })
       .catch(function(err){ console.error('Tuckshop load error (Sheets API):', err); });
   }
 
   // Auto-refresh: solo actualiza el countdown de patties sin tocar el form
   function refreshStockOnly() {
+    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
     _sheetsApiGet(TUCKSHOP_SHEET_ID, 'TuckshopMenu!A1:D100')
       .then(function(rows) {
-        var stock = {};
+        var initialStock = {};
         for (var i = 1; i < rows.length; i++) {
           var name = rows[i][1];
           var stk  = rows[i][3];
-          if (name && stk !== undefined && stk !== '') stock[name] = parseInt(stk) || 0;
+          if (name && PATTY_TYPES.indexOf(name) !== -1 && stk !== undefined && stk !== '') {
+            initialStock[name] = parseInt(stk) || 0;
+          }
         }
+        return _computeAvailableStock(initialStock);
+      })
+      .then(function(stock) {
         tuckshopStock = stock;
         var chips = document.querySelectorAll('.menu-item-chip .menu-item-name');
         chips.forEach(function(chip) {
