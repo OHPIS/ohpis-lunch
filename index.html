@@ -791,6 +791,30 @@ function _computeAvailableStock(initialStock) {
     return stock;
   });
 }
+
+function _postWithRetry(url, data, timeoutMs) {
+  timeoutMs = timeoutMs || 8000;
+  var attempt = function() {
+    var controller = new AbortController();
+    var timer = setTimeout(function(){ controller.abort(); }, timeoutMs);
+    return fetch(url, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' }, signal: controller.signal })
+      .then(function(r) { clearTimeout(timer); return r.json(); })
+      .catch(function(err) { clearTimeout(timer); throw err; });
+  };
+  return attempt().catch(function() { return attempt(); });
+}
+
+function _getWithRetry(url, timeoutMs) {
+  timeoutMs = timeoutMs || 8000;
+  var attempt = function() {
+    var controller = new AbortController();
+    var timer = setTimeout(function(){ controller.abort(); }, timeoutMs);
+    return fetch(url, { signal: controller.signal })
+      .then(function(r) { clearTimeout(timer); return r.json(); })
+      .catch(function(err) { clearTimeout(timer); throw err; });
+  };
+  return attempt().catch(function() { return attempt(); });
+}
   var tuckshopProducts    = [];
   var tuckshopStock      = { 'Beef Patty': 0, 'Cheese Patty': 0, 'Chicken Patty': 0 };
   var tuckshopDate        = '';
@@ -1034,9 +1058,8 @@ function _computeAvailableStock(initialStock) {
     saveBtn.textContent = 'Saving…';
     saveBtn.disabled = true;
 
-    var data = { action: 'saveMenu', date: date, items: items, note: note };
-    fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } })
-      .then(function(r) { return r.json(); })
+        var data = { action: 'saveMenu', date: date, items: items, note: note };
+    _postWithRetry(SCRIPT_URL, data)
       .then(function(res) {
         if (res.result === 'success') {
           loadMenuDisplay();
@@ -1878,9 +1901,8 @@ function _computeAvailableStock(initialStock) {
     if (prefix === 'c' || prefix === 't') data.className = key;
     else data.name = key;
 
-    try {
-      var response = await fetch(scriptUrl, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } });
-      var result   = await response.json();
+       try {
+      var result = await _postWithRetry(scriptUrl, data);
       if (result.result === 'success') {
         // Recalcular stock de patties si es update de tuckshop
         if (prefix === 't') {
@@ -2525,7 +2547,7 @@ var price = parseFloat(sel.value) || 0;
     msgEl.textContent = 'Checking...';
     var sheetTab = chsMode === 'class' ? 'Classes' : 'Office';
     var url = SCRIPT_URL + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) + '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
-    fetch(url).then(function(r){ return r.json(); }).then(function(res) {
+    _getWithRetry(url).then(function(res) {
       if (res.result === 'notfound') {
         msgEl.className = 'edit-msg notfound';
         msgEl.textContent = 'No order found for ' + key + ' on this date.';
@@ -2563,7 +2585,7 @@ var price = parseFloat(sel.value) || 0;
     msgEl.className = 'edit-msg found';
     msgEl.textContent = 'Checking...';
     var url = TUCKSHOP_SCRIPT_URL + '?action=getOrder&sheetTab=Tuckshop&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(cls);
-    fetch(url).then(function(r){ return r.json(); }).then(function(res) {
+    _getWithRetry(url).then(function(res) {
       if (res.result === 'notfound') {
         msgEl.className = 'edit-msg notfound';
         msgEl.textContent = 'No order found for ' + cls + ' on this date.';
@@ -2892,12 +2914,7 @@ var price = parseFloat(sel.value) || 0;
     statusEl.style.cssText = 'display:block;background:#f0f4ff;border:1px solid #c0ccf0;color:#1A2E6B;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
     statusEl.textContent = 'Saving...';
     try {
-      var response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'saveLunchTypes', rows: rows }),
-        headers: { 'Content-Type': 'text/plain' }
-      });
-      var result = await response.json();
+      var result = await _postWithRetry(SCRIPT_URL, { action: 'saveLunchTypes', rows: rows });
       if (result.result === 'success') {
         statusEl.style.cssText = 'display:block;background:#e8f5ee;border:1px solid #a8d5b8;color:#1a5c2e;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
         statusEl.textContent = '✅ Saved! Forms will use new prices on next load.';
