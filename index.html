@@ -2361,20 +2361,38 @@ var price = parseFloat(sel.value) || 0;
       date: date, className: className, rows: rows, grandTotal: grandTotal
     };
 
+        var attemptTuckshopSubmit = function() {
+      var controller = new AbortController();
+      var timer = setTimeout(function(){ controller.abort(); }, 8000);
+      return fetch(TUCKSHOP_SCRIPT_URL, { method:'POST', body:JSON.stringify(data), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
+        .then(function(r) { clearTimeout(timer); return r.json(); })
+        .catch(function(err) { clearTimeout(timer); throw err; });
+    };
+
     try {
-      var response = await fetch(TUCKSHOP_SCRIPT_URL, { method:'POST', body:JSON.stringify(data), headers:{'Content-Type':'text/plain'} });
-      var result   = await response.json();
+      var result;
+      var isRetry = false;
+      try {
+        result = await attemptTuckshopSubmit();
+      } catch(firstErr) {
+        isRetry = true;
+        result = await attemptTuckshopSubmit();
+      }
       if (result.result === 'duplicate') {
-        statusEl.className = 'status-msg error';
-        statusEl.innerHTML = '⚠️ ' + result.message;
-        statusEl.style.display = 'block';
+        if (isRetry) {
+          refreshStockOnly();
+          showTuckshopSuccess(statusEl, grandTotal);
+        } else {
+          statusEl.className = 'status-msg error';
+          statusEl.innerHTML = '⚠️ ' + result.message;
+          statusEl.style.display = 'block';
+        }
       } else if (result.result === 'stockError') {
         statusEl.className = 'status-msg error';
         statusEl.innerHTML = '🚫 Not enough stock — ' + result.message;
         statusEl.style.display = 'block';
         refreshStockOnly();
       } else if (result.result === 'success') {
-        // Use stock returned by server (authoritative), fallback to local deduction
         if (result.stock) {
           tuckshopStock = result.stock;
         } else {
