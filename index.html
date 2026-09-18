@@ -1707,8 +1707,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     var url = scriptUrl + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) +
               '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
 
-    fetch(url)
-      .then(function(r) { return r.json(); })
+    _getWithRetry(url)
       .then(function(res) {
         if (res.result === 'notfound') {
           msgEl.className = 'edit-msg notfound';
