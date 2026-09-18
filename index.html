@@ -791,6 +791,68 @@ function _computeAvailableStock(initialStock) {
     return stock;
   });
 }
+
+// Verifica, vía la API (no Apps Script), si ya existe una fila de orden
+// con esa clase/nombre en la columna C — sin comparar fecha ni hora,
+// ya que las hojas de órdenes se reinician cada día.
+function _orderExistsForKey(sheetId, sheetTab, key) {
+  return _sheetsApiGet(sheetId, sheetTab + '!C1:C3000').then(function(rows) {
+    for (var i = 1; i < rows.length; i++) {
+      var c = String(rows[i][0] || '').trim();
+      if (c === key) return true;
+    }
+    return false;
+  });
+}
+
+// POST con timeout de 8s y 1 reintento automático. Segura para usar en
+// operaciones que sobrescriben datos (guardar menú, lunch types, productos,
+// actualizar una orden) porque repetir el mismo guardado da el mismo resultado.
+function _postWithRetry(url, data, timeoutMs) {
+  timeoutMs = timeoutMs || 8000;
+  var attempt = function() {
+    var controller = new AbortController();
+    var timer = setTimeout(function(){ controller.abort(); }, timeoutMs);
+    return fetch(url, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' }, signal: controller.signal })
+      .then(function(r) { clearTimeout(timer); return r.json(); })
+      .catch(function(err) { clearTimeout(timer); throw err; });
+  };
+  return attempt().catch(function() { return attempt(); });
+}
+
+// GET con timeout de 8s y 1 reintento automático — para lecturas (buscar
+// orden, revisar status). Sin riesgo, no modifica nada.
+function _getWithRetry(url, timeoutMs) {
+  timeoutMs = timeoutMs || 8000;
+  var attempt = function() {
+    var controller = new AbortController();
+    var timer = setTimeout(function(){ controller.abort(); }, timeoutMs);
+    return fetch(url, { signal: controller.signal })
+      .then(function(r) { clearTimeout(timer); return r.json(); })
+      .catch(function(err) { clearTimeout(timer); throw err; });
+  };
+  return attempt().catch(function() { return attempt(); });
+}
+
+// Después de guardar, confirma que el dato ya se propagó a la API de lectura
+// antes de refrescar la pantalla — evita mostrar una versión vieja.
+function _reloadMenuUntilFresh(expectedCheck, maxTries) {
+  maxTries = maxTries || 5;
+  var tries = 0;
+  function attempt() {
+    tries++;
+    return Promise.all([
+      _sheetsApiGet(LUNCH_SHEET_ID, 'Menu!A1:Z100'),
+      _sheetsApiGet(LUNCH_SHEET_ID, 'LunchTypes!A1:Z100')
+    ]).then(function(results) {
+      if (expectedCheck(results[0], results[1]) || tries >= maxTries) {
+        return results;
+      }
+      return new Promise(function(resolve){ setTimeout(resolve, 1000); }).then(attempt);
+    });
+  }
+  return attempt();
+}
   var tuckshopProducts    = [];
   var tuckshopStock      = { 'Beef Patty': 0, 'Cheese Patty': 0, 'Chicken Patty': 0 };
   var tuckshopDate        = '';
@@ -817,39 +879,40 @@ function _computeAvailableStock(initialStock) {
     setTimeout(function() { loadTuckshopProducts(); }, 400);
   });
 
+  function _applyMenuAndTypesFromRows(menuRows, typesRows) {
+    if (menuRows.length > 1) {
+      var items = [];
+      for (var i = 1; i < menuRows.length; i++) {
+        var row = menuRows[i];
+        if (row[1]) items.push({ name: row[1], price: row[2] });
+      }
+      var menu = { date: menuRows[1][0], items: items, note: menuRows[1][3] || '' };
+      renderMenu(menu);
+    }
+
+    var classTypes = [], officeTypes = [];
+    for (var j = 1; j < typesRows.length; j++) {
+      var r = typesRows[j];
+      var name = r[0];
+      if (!name) continue;
+      if (r[1] !== undefined && r[1] !== '') classTypes.push({ name: name, price: parseFloat(r[1]) });
+      if (r[2] !== undefined && r[2] !== '') officeTypes.push({ name: name, price: parseFloat(r[2]) });
+    }
+    LUNCH_TYPES_CLASS  = classTypes;
+    LUNCH_TYPES_OFFICE = officeTypes;
+    ['c','o'].forEach(function(p) {
+      var itemsEl = document.getElementById(p + '-items');
+      if (itemsEl) itemsEl.innerHTML = '';
+      addRow(p);
+    });
+  }
+
   function loadMenuDisplay() {
     Promise.all([
       _sheetsApiGet(LUNCH_SHEET_ID, 'Menu!A1:Z100'),
       _sheetsApiGet(LUNCH_SHEET_ID, 'LunchTypes!A1:Z100')
     ]).then(function(results) {
-      var menuRows = results[0];
-      var typesRows = results[1];
-
-      if (menuRows.length > 1) {
-        var items = [];
-        for (var i = 1; i < menuRows.length; i++) {
-          var row = menuRows[i];
-          if (row[1]) items.push({ name: row[1], price: row[2] });
-        }
-        var menu = { date: menuRows[1][0], items: items, note: menuRows[1][3] || '' };
-        renderMenu(menu);
-      }
-
-      var classTypes = [], officeTypes = [];
-      for (var j = 1; j < typesRows.length; j++) {
-        var r = typesRows[j];
-        var name = r[0];
-        if (!name) continue;
-        if (r[1] !== undefined && r[1] !== '') classTypes.push({ name: name, price: parseFloat(r[1]) });
-        if (r[2] !== undefined && r[2] !== '') officeTypes.push({ name: name, price: parseFloat(r[2]) });
-      }
-      LUNCH_TYPES_CLASS  = classTypes;
-      LUNCH_TYPES_OFFICE = officeTypes;
-      ['c','o'].forEach(function(p) {
-        var itemsEl = document.getElementById(p + '-items');
-        if (itemsEl) itemsEl.innerHTML = '';
-        addRow(p);
-      });
+      _applyMenuAndTypesFromRows(results[0], results[1]);
     }).catch(function(err) {
       console.error('Menu/types load error (Sheets API):', err);
     });
@@ -1035,11 +1098,15 @@ function _computeAvailableStock(initialStock) {
     saveBtn.disabled = true;
 
     var data = { action: 'saveMenu', date: date, items: items, note: note };
-    fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } })
-      .then(function(r) { return r.json(); })
+    _postWithRetry(SCRIPT_URL, data)
       .then(function(res) {
         if (res.result === 'success') {
-          loadMenuDisplay();
+          var savedDate = date;
+          _reloadMenuUntilFresh(function(menuRows) {
+            return menuRows.length > 1 && String(menuRows[1][0]).replace(/'/g,'').trim().substring(0,10) === savedDate;
+          }).then(function(results) {
+            _applyMenuAndTypesFromRows(results[0], results[1]);
+          });
           document.getElementById('menu-editor').classList.remove('open');
         } else {
           document.getElementById('menu-save-error').textContent = 'Error saving menu. Please try again.'; document.getElementById('menu-save-error').style.display = 'block';
@@ -1048,9 +1115,26 @@ function _computeAvailableStock(initialStock) {
         saveBtn.disabled = false;
       })
       .catch(function(err) {
-        document.getElementById('menu-save-error').textContent = 'Error saving menu. Please try again.'; document.getElementById('menu-save-error').style.display = 'block';
-        saveBtn.textContent = 'Save Menu';
-        saveBtn.disabled = false;
+        // El guardado falló en confirmar. Antes de mostrar error, verificar
+        // vía la API si en realidad sí se guardó.
+        var savedDate = date;
+        _reloadMenuUntilFresh(function(menuRows) {
+          return menuRows.length > 1 && String(menuRows[1][0]).replace(/'/g,'').trim().substring(0,10) === savedDate;
+        }, 3).then(function(results) {
+          var confirmed = results[0].length > 1 && String(results[0][1][0]).replace(/'/g,'').trim().substring(0,10) === savedDate;
+          if (confirmed) {
+            _applyMenuAndTypesFromRows(results[0], results[1]);
+            document.getElementById('menu-editor').classList.remove('open');
+          } else {
+            document.getElementById('menu-save-error').textContent = 'Error saving menu. Please try again.'; document.getElementById('menu-save-error').style.display = 'block';
+          }
+          saveBtn.textContent = 'Save Menu';
+          saveBtn.disabled = false;
+        }).catch(function() {
+          document.getElementById('menu-save-error').textContent = 'Error saving menu. Please try again.'; document.getElementById('menu-save-error').style.display = 'block';
+          saveBtn.textContent = 'Save Menu';
+          saveBtn.disabled = false;
+        });
         console.error(err);
       });
   }
@@ -1494,7 +1578,7 @@ function _computeAvailableStock(initialStock) {
       return;
     }
 
-        btn.disabled    = true;
+    btn.disabled    = true;
     btn.textContent = 'Submitting…';
 
     var header = {};
@@ -1515,11 +1599,31 @@ function _computeAvailableStock(initialStock) {
       try {
         result = await attemptSubmit();
       } catch(firstErr) {
+        // El primer intento falló o tardó demasiado — reintentar una vez.
         isRetry = true;
-        result = await attemptSubmit();
+        try {
+          result = await attemptSubmit();
+        } catch(secondErr) {
+          // Ambos intentos fallaron en confirmar. Antes de decir "error",
+          // verificar vía la API (no Apps Script) si la orden ya se guardó.
+          var checkKey = header.className || header.name;
+          var confirmedByCheck = false;
+          try {
+            confirmedByCheck = await _orderExistsForKey(LUNCH_SHEET_ID, sheetTab, checkKey);
+          } catch(checkErr) {}
+          if (confirmedByCheck) {
+            showSuccess(statusEl, form, prefix, grandTotal);
+            btn.disabled    = false;
+            btn.textContent = btnText;
+            return;
+          }
+          throw secondErr;
+        }
       }
       if (result.includes('duplicate')) {
         if (isRetry) {
+          // La orden en realidad sí se había guardado en el primer intento
+          // (por eso el backend ahora la ve como duplicada) — es un éxito.
           showSuccess(statusEl, form, prefix, grandTotal);
         } else {
           var parsed = JSON.parse(result);
@@ -1879,8 +1983,7 @@ function _computeAvailableStock(initialStock) {
     else data.name = key;
 
     try {
-      var response = await fetch(scriptUrl, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' } });
-      var result   = await response.json();
+      var result = await _postWithRetry(scriptUrl, data);
       if (result.result === 'success') {
         // Recalcular stock de patties si es update de tuckshop
         if (prefix === 't') {
@@ -2361,7 +2464,7 @@ var price = parseFloat(sel.value) || 0;
       date: date, className: className, rows: rows, grandTotal: grandTotal
     };
 
-        var attemptTuckshopSubmit = function() {
+    var attemptTuckshopSubmit = function() {
       var controller = new AbortController();
       var timer = setTimeout(function(){ controller.abort(); }, 8000);
       return fetch(TUCKSHOP_SCRIPT_URL, { method:'POST', body:JSON.stringify(data), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
@@ -2375,11 +2478,30 @@ var price = parseFloat(sel.value) || 0;
       try {
         result = await attemptTuckshopSubmit();
       } catch(firstErr) {
+        // El primer intento falló o tardó demasiado — reintentar una vez.
         isRetry = true;
-        result = await attemptTuckshopSubmit();
+        try {
+          result = await attemptTuckshopSubmit();
+        } catch(secondErr) {
+          // Ambos intentos fallaron en confirmar. Antes de decir "error",
+          // verificar vía la API (no Apps Script) si la orden ya se guardó.
+          var confirmedByCheck = false;
+          try {
+            confirmedByCheck = await _orderExistsForKey(TUCKSHOP_SHEET_ID, 'Tuckshop', className);
+          } catch(checkErr) {}
+          if (confirmedByCheck) {
+            refreshStockOnly();
+            showTuckshopSuccess(statusEl, grandTotal);
+            btn.disabled = false; btn.textContent = 'Submit Tuckshop Order';
+            return;
+          }
+          throw secondErr;
+        }
       }
       if (result.result === 'duplicate') {
         if (isRetry) {
+          // La orden en realidad sí se había guardado en el primer intento
+          // (por eso el backend ahora la ve como duplicada) — es un éxito.
           refreshStockOnly();
           showTuckshopSuccess(statusEl, grandTotal);
         } else {
@@ -2393,6 +2515,7 @@ var price = parseFloat(sel.value) || 0;
         statusEl.style.display = 'block';
         refreshStockOnly();
       } else if (result.result === 'success') {
+        // Use stock returned by server (authoritative), fallback to local deduction
         if (result.stock) {
           tuckshopStock = result.stock;
         } else {
@@ -2525,7 +2648,7 @@ var price = parseFloat(sel.value) || 0;
     msgEl.textContent = 'Checking...';
     var sheetTab = chsMode === 'class' ? 'Classes' : 'Office';
     var url = SCRIPT_URL + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) + '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
-    fetch(url).then(function(r){ return r.json(); }).then(function(res) {
+    _getWithRetry(url).then(function(res) {
       if (res.result === 'notfound') {
         msgEl.className = 'edit-msg notfound';
         msgEl.textContent = 'No order found for ' + key + ' on this date.';
@@ -2563,7 +2686,7 @@ var price = parseFloat(sel.value) || 0;
     msgEl.className = 'edit-msg found';
     msgEl.textContent = 'Checking...';
     var url = TUCKSHOP_SCRIPT_URL + '?action=getOrder&sheetTab=Tuckshop&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(cls);
-    fetch(url).then(function(r){ return r.json(); }).then(function(res) {
+    _getWithRetry(url).then(function(res) {
       if (res.result === 'notfound') {
         msgEl.className = 'edit-msg notfound';
         msgEl.textContent = 'No order found for ' + cls + ' on this date.';
@@ -2892,20 +3015,39 @@ var price = parseFloat(sel.value) || 0;
     statusEl.style.cssText = 'display:block;background:#f0f4ff;border:1px solid #c0ccf0;color:#1A2E6B;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
     statusEl.textContent = 'Saving...';
     try {
-      var response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'saveLunchTypes', rows: rows }),
-        headers: { 'Content-Type': 'text/plain' }
-      });
-      var result = await response.json();
+      var result = await _postWithRetry(SCRIPT_URL, { action: 'saveLunchTypes', rows: rows });
       if (result.result === 'success') {
         statusEl.style.cssText = 'display:block;background:#e8f5ee;border:1px solid #a8d5b8;color:#1a5c2e;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
         statusEl.textContent = '✅ Saved! Forms will use new prices on next load.';
-        loadMenuDisplay(); // refresh in-memory types (via Sheets API)
+        var savedNames = rows.map(function(r){ return r.name; });
+        _reloadMenuUntilFresh(function(menuRows, typesRows) {
+          var namesInSheet = typesRows.slice(1).map(function(r){ return r[0]; });
+          return savedNames.every(function(n){ return namesInSheet.indexOf(n) !== -1; });
+        }).then(function(results) {
+          _applyMenuAndTypesFromRows(results[0], results[1]);
+        });
       } else { throw new Error(result.message || JSON.stringify(result)); }
     } catch(e) {
-      statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
-      statusEl.textContent = '❌ Error: ' + (e.message || 'Please try again.');
+      // El guardado falló en confirmar. Antes de mostrar error, verificar
+      // vía la API si en realidad sí se guardó.
+      var savedNames2 = rows.map(function(r){ return r.name; });
+      var confirmed = false;
+      try {
+        var checkResults = await _reloadMenuUntilFresh(function(menuRows, typesRows) {
+          var namesInSheet = typesRows.slice(1).map(function(r){ return r[0]; });
+          return savedNames2.every(function(n){ return namesInSheet.indexOf(n) !== -1; });
+        }, 3);
+        var namesInSheet2 = checkResults[1].slice(1).map(function(r){ return r[0]; });
+        confirmed = savedNames2.every(function(n){ return namesInSheet2.indexOf(n) !== -1; });
+        if (confirmed) _applyMenuAndTypesFromRows(checkResults[0], checkResults[1]);
+      } catch(checkErr) {}
+      if (confirmed) {
+        statusEl.style.cssText = 'display:block;background:#e8f5ee;border:1px solid #a8d5b8;color:#1a5c2e;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
+        statusEl.textContent = '✅ Saved! Forms will use new prices on next load.';
+      } else {
+        statusEl.style.cssText = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
+        statusEl.textContent = '❌ Error: ' + (e.message || 'Please try again.');
+      }
     }
   }
 
