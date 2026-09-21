@@ -1599,7 +1599,19 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       try {
         result = await attemptSubmit();
       } catch(firstErr) {
-        // El primer intento falló o tardó demasiado — reintentar una vez.
+        // El primer intento falló o tardó demasiado. Antes de reintentar,
+        // verificar vía la API si la orden ya existe.
+        var checkKeyPre = header.className || header.name;
+        var alreadySaved = false;
+        try {
+          alreadySaved = await _orderExistsForKey(LUNCH_SHEET_ID, sheetTab, checkKeyPre);
+        } catch(preCheckErr) {}
+        if (alreadySaved) {
+          showSuccess(statusEl, form, prefix, grandTotal);
+          btn.disabled    = false;
+          btn.textContent = btnText;
+          return;
+        }
         isRetry = true;
         try {
           result = await attemptSubmit();
@@ -2477,7 +2489,18 @@ var price = parseFloat(sel.value) || 0;
       try {
         result = await attemptTuckshopSubmit();
       } catch(firstErr) {
-        // El primer intento falló o tardó demasiado — reintentar una vez.
+        // El primer intento falló o tardó demasiado. Antes de reintentar,
+        // verificar vía la API si la orden ya existe.
+        var alreadySaved = false;
+        try {
+          alreadySaved = await _orderExistsForKey(TUCKSHOP_SHEET_ID, 'Tuckshop', className);
+        } catch(preCheckErr) {}
+        if (alreadySaved) {
+          refreshStockOnly();
+          showTuckshopSuccess(statusEl, grandTotal);
+          btn.disabled = false; btn.textContent = 'Submit Tuckshop Order';
+          return;
+        }
         isRetry = true;
         try {
           result = await attemptTuckshopSubmit();
