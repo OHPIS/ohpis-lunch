@@ -2153,6 +2153,11 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         msgEl.className = 'edit-msg found';
         msgEl.textContent = '✅ Order updated successfully! Total: J$ ' + grandTotal.toLocaleString('en-JM');
         _setEditSearchLocked(prefix, false);
+        var updKeyField = prefix === 'c' ? document.getElementById('c-edit-class')
+                         : prefix === 't' ? document.getElementById('t-edit-class')
+                         : document.getElementById('o-edit-name');
+        if (updKeyField) updKeyField.value = '';
+        document.getElementById(prefix + '-edit-date').value = today;
         document.getElementById(prefix + '-edit-items').innerHTML = '';
         document.getElementById(prefix + '-edit-add').style.display = 'none';
         document.getElementById(prefix + '-edit-total-box').style.display = 'none';
