@@ -1686,12 +1686,32 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     if (dateField) dateField.disabled = locked;
   }
 
+  function _resetEditPanel(prefix) {
+    var itemsEl   = document.getElementById(prefix + '-edit-items');
+    var addBtn    = document.getElementById(prefix + '-edit-add');
+    var totalBox  = document.getElementById(prefix + '-edit-total-box');
+    var updateBtn = document.getElementById(prefix + '-update-btn');
+    var resultEl  = document.getElementById(prefix + '-edit-result');
+    var msgEl     = document.getElementById(prefix + '-edit-msg');
+    if (itemsEl)   itemsEl.innerHTML = '';
+    if (addBtn)    addBtn.style.display = 'none';
+    if (totalBox)  totalBox.style.display = 'none';
+    if (updateBtn) updateBtn.style.display = 'none';
+    if (resultEl)  resultEl.className = 'edit-result';
+    if (msgEl)     { msgEl.textContent = ''; msgEl.className = 'edit-msg'; }
+    editStartRow[prefix]  = null;
+    editTimestamp[prefix] = null;
+    if (prefix === 't') editOriginalRows['t'] = [];
+    _setEditSearchLocked(prefix, false);
+  }
+
   function toggleEditPanel(prefix) {
     var panel = document.getElementById(prefix + '-edit-panel');
     panel.classList.toggle('open');
     // Set date to today by default
     var dateInput = document.getElementById(prefix + '-edit-date');
     dateInput.value = today;
+    _resetEditPanel(prefix);
   }
 
   function findOrder(prefix) {
@@ -3139,7 +3159,7 @@ var price = parseFloat(sel.value) || 0;
     if (panel) {
       panel.classList.remove('open');
       if (panel.id && panel.id.indexOf('-edit-panel') !== -1) {
-        _setEditSearchLocked(panel.id.replace('-edit-panel', ''), false);
+        _resetEditPanel(panel.id.replace('-edit-panel', ''));
       }
     }
   }
