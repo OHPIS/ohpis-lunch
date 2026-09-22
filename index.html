@@ -1677,6 +1677,15 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   var editTimestamp = { c: null, o: null }; // ← guardar timestamp original de la orden
   var editOriginalRows = { t: [] };         // ← guardar filas originales del tuckshop
 
+  function _setEditSearchLocked(prefix, locked) {
+    var keyField = prefix === 'c' ? document.getElementById('c-edit-class')
+                 : prefix === 't' ? document.getElementById('t-edit-class')
+                 : document.getElementById('o-edit-name');
+    var dateField = document.getElementById(prefix + '-edit-date');
+    if (keyField)  keyField.disabled  = locked;
+    if (dateField) dateField.disabled = locked;
+  }
+
   function toggleEditPanel(prefix) {
     var panel = document.getElementById(prefix + '-edit-panel');
     panel.classList.toggle('open');
@@ -1732,6 +1741,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         } else {
           msgEl.className = 'edit-msg found';
           msgEl.textContent = 'Order found — edit below and click Update Order.';
+          _setEditSearchLocked(prefix, true);
           editStartRow[prefix]  = res.startRow;
           editTimestamp[prefix] = res.timestamp;
           itemsEl.innerHTML = '';
@@ -2024,6 +2034,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         }
         msgEl.className = 'edit-msg found';
         msgEl.textContent = '✅ Order updated successfully! Total: J$ ' + grandTotal.toLocaleString('en-JM');
+        _setEditSearchLocked(prefix, false);
         document.getElementById(prefix + '-edit-items').innerHTML = '';
         document.getElementById(prefix + '-edit-add').style.display = 'none';
         document.getElementById(prefix + '-edit-total-box').style.display = 'none';
@@ -3125,7 +3136,12 @@ var price = parseFloat(sel.value) || 0;
 
   function closePanel(btn) {
     var panel = btn.closest('.edit-panel');
-    if (panel) panel.classList.remove('open');
+    if (panel) {
+      panel.classList.remove('open');
+      if (panel.id && panel.id.indexOf('-edit-panel') !== -1) {
+        _setEditSearchLocked(panel.id.replace('-edit-panel', ''), false);
+      }
+    }
   }
 
 </script>
