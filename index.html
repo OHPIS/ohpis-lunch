@@ -764,6 +764,19 @@ function _sheetsApiGet(sheetId, range) {
   }).then(function(data) { return data.values || []; });
 }
 
+// Función separada, solo para buscar órdenes (Find/Update Order) — con
+// protección de caché propia, SIN tocar _sheetsApiGet (que usan menú,
+// lunch types, tuckshop y stock, y que funciona bien tal como está).
+function _sheetsApiGetFresh(sheetId, range) {
+  var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId +
+             '/values/' + encodeURIComponent(range) + '?key=' + SHEETS_API_KEY +
+             '&_ts=' + Date.now();
+  return fetch(url, { cache: 'no-store' }).then(function(r) {
+    if (!r.ok) throw new Error('Sheets API error: ' + r.status);
+    return r.json();
+  }).then(function(data) { return data.values || []; });
+}
+
 // Replica el mismo cálculo que hacía el Apps Script: stock inicial menos
 // la suma de patties ya pedidos hoy (filas TOTALS no canceladas).
 function _computeAvailableStock(initialStock) {
@@ -795,6 +808,65 @@ function _computeAvailableStock(initialStock) {
 // Verifica, vía la API (no Apps Script), si ya existe una fila de orden
 // con esa clase/nombre en la columna C — sin comparar fecha ni hora,
 // ya que las hojas de órdenes se reinician cada día.
+// Busca una orden completa (items, startRow, status, total) vía la API,
+// replicando exactamente la lógica de action=getOrder del Apps Script.
+// Si no la encuentra (posible diferencia de formato de fecha entre la
+// API y Apps Script, nunca 100% garantizada), cae automáticamente al
+// método probado de Apps Script antes de declarar "no encontrado" —
+// para no arriesgar nunca un falso negativo en algo tan crítico.
+function _fetchOrderFromSheet(sheetId, sheetTab, date, key, scriptUrl) {
+  return _sheetsApiGetFresh(sheetId, sheetTab + '!A1:J3000').then(function(vals) {
+    var rowsFound = [], startRow = -1, grandTotal = '', timestampFound = '', statusFound = '';
+    var statusCol = sheetTab === 'Office' ? 8 : 9;
+    var itemField = sheetTab === 'Tuckshop' ? 'product' : 'lunchType';
+    for (var i = 1; i < vals.length; i++) {
+      var row = vals[i] || [];
+      var vDate = String(row[1] || '').trim();
+      var vKey  = String(row[2] || '').trim();
+      var a0    = String(row[0] || '').trim();
+      if (vDate === date && vKey === key && a0 !== '' && a0 !== 'TOTALS') {
+        startRow = i + 1;
+        grandTotal = row[7];
+        timestampFound = a0;
+        statusFound = String(row[statusCol] || '').trim();
+        var item = {}; item[itemField] = row[3]; item.amount = row[4]; item.price = row[5]; item.total = row[6];
+        rowsFound.push(item);
+      } else if (startRow !== -1 && a0 === '' && String(row[3] || '').trim() !== '') {
+        var item2 = {}; item2[itemField] = row[3]; item2.amount = row[4]; item2.price = row[5]; item2.total = row[6];
+        rowsFound.push(item2);
+      } else if (startRow !== -1) {
+        break;
+      }
+    }
+    if (rowsFound.length) {
+      return { result: 'success', startRow: startRow, rows: rowsFound, grandTotal: grandTotal, timestamp: timestampFound, status: statusFound };
+    }
+    // Respaldo: no se encontró vía API, preguntarle directamente a Apps Script.
+    var url = scriptUrl + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) +
+              '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
+    return _getWithRetry(url);
+  }).catch(function() {
+    // Si la API falla por completo, también respaldo con Apps Script.
+    var url = scriptUrl + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) +
+              '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
+    return _getWithRetry(url);
+  });
+}
+
+// Compara item por item (no solo el total) si lo que se acaba de guardar
+// coincide exactamente con lo que realmente hay en el Sheet — evita el
+// falso positivo de "el total coincide por casualidad, pero los items
+// son distintos".
+function _ordersMatch(submittedRows, foundRows, itemField) {
+  if (!foundRows || submittedRows.length !== foundRows.length) return false;
+  var sig = function(rows) {
+    return rows.map(function(r) {
+      return String(r[itemField] || '').trim() + '|' + Number(r.amount);
+    }).sort().join(',');
+  };
+  return sig(submittedRows) === sig(foundRows);
+}
+
 function _orderExistsForKey(sheetId, sheetTab, key) {
   return _sheetsApiGet(sheetId, sheetTab + '!C1:C3000').then(function(rows) {
     for (var i = 1; i < rows.length; i++) {
@@ -1751,10 +1823,9 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
 
     var scriptUrl = (prefix === 't') ? TUCKSHOP_SCRIPT_URL : SCRIPT_URL;
     var sheetTab  = prefix === 'c' ? 'Classes' : prefix === 't' ? 'Tuckshop' : 'Office';
-    var url = scriptUrl + '?action=getOrder&sheetTab=' + encodeURIComponent(sheetTab) +
-              '&date=' + encodeURIComponent(date) + '&key=' + encodeURIComponent(key);
+    var sheetId   = (prefix === 't') ? TUCKSHOP_SHEET_ID : LUNCH_SHEET_ID;
 
-    _getWithRetry(url)
+    _fetchOrderFromSheet(sheetId, sheetTab, date, key, scriptUrl)
       .then(function(res) {
         if (res.result === 'notfound') {
           msgEl.className = 'edit-msg notfound';
@@ -2030,7 +2101,28 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     else data.name = key;
 
     try {
-      var result = await _postWithRetry(scriptUrl, data);
+      var result;
+      try {
+        result = await _postWithRetry(scriptUrl, data);
+      } catch(updateErr) {
+        // El guardado falló en confirmar. Antes de mostrar error,
+        // verificar vía la API si el cambio en realidad sí se aplicó.
+        var sheetId = prefix === 't' ? TUCKSHOP_SHEET_ID : LUNCH_SHEET_ID;
+        var itemField = prefix === 't' ? 'product' : 'lunchType';
+        var verified = false;
+        try {
+          var checkRes = await _fetchOrderFromSheet(sheetId, sheetTab, date, key, scriptUrl);
+          if (checkRes && checkRes.result === 'success' &&
+              _ordersMatch(rows, checkRes.rows, itemField)) {
+            verified = true;
+          }
+        } catch(vErr) {}
+        if (verified) {
+          result = { result: 'success' };
+        } else {
+          throw updateErr;
+        }
+      }
       if (result.result === 'success') {
         // Recalcular stock de patties si es update de tuckshop
         if (prefix === 't') {
