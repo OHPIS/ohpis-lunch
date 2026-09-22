@@ -1693,6 +1693,10 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     var updateBtn = document.getElementById(prefix + '-update-btn');
     var resultEl  = document.getElementById(prefix + '-edit-result');
     var msgEl     = document.getElementById(prefix + '-edit-msg');
+    var keyField  = prefix === 'c' ? document.getElementById('c-edit-class')
+                  : prefix === 't' ? document.getElementById('t-edit-class')
+                  : document.getElementById('o-edit-name');
+    var dateField = document.getElementById(prefix + '-edit-date');
     if (itemsEl)   itemsEl.innerHTML = '';
     if (addBtn)    addBtn.style.display = 'none';
     if (totalBox)  totalBox.style.display = 'none';
@@ -1703,6 +1707,8 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     editTimestamp[prefix] = null;
     if (prefix === 't') editOriginalRows['t'] = [];
     _setEditSearchLocked(prefix, false);
+    if (keyField)  keyField.value = '';
+    if (dateField) dateField.value = today;
   }
 
   function toggleEditPanel(prefix) {
