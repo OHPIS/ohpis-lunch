@@ -754,6 +754,10 @@ const TUCKSHOP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzdvaz3SEb
 const SHEETS_API_KEY = "AIzaSyDdn-YO6T4PFqni6SIiW4ZYgRtvTxjTr4s";
 const LUNCH_SHEET_ID = "18ujuTiMZr8QZNc3E2alBekqDFCbIppraG_Jdp-3rgl8";
 const TUCKSHOP_SHEET_ID = "1VKcGiWmghozPl0iKor4ggkU_Op_epZuBKVwuSqyPB-0";
+// Escrituras de Tuckshop (tuckshopOrder, updateOrder, saveProducts, updateStock) → Cloud Run
+const TUCKSHOP_BACKEND_URL = "https://tuckshop-backend-93139346570.us-east1.run.app";
+// Escrituras de Lunch (Classes, Office, updateOrder, saveMenu, saveLunchTypes) → Cloud Run
+const LUNCH_BACKEND_URL = "https://lunch-backend-93139346570.us-east1.run.app";
 
 function _sheetsApiGet(sheetId, range) {
   var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId +
@@ -1170,7 +1174,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     saveBtn.disabled = true;
 
     var data = { action: 'saveMenu', date: date, items: items, note: note };
-    _postWithRetry(SCRIPT_URL, data)
+    _postWithRetry(LUNCH_BACKEND_URL, data)
       .then(function(res) {
         if (res.result === 'success') {
           var savedDate = date;
@@ -1660,7 +1664,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     var attemptSubmit = function() {
       var controller = new AbortController();
       var timer = setTimeout(function(){ controller.abort(); }, 8000);
-      return fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' }, signal: controller.signal })
+      return fetch(LUNCH_BACKEND_URL, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' }, signal: controller.signal })
         .then(function(r) { clearTimeout(timer); return r.text(); })
         .catch(function(err) { clearTimeout(timer); throw err; });
     };
@@ -2019,6 +2023,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         : document.getElementById('o-edit-name').value.trim();
     var sheetTab  = prefix === 'c' ? 'Classes' : prefix === 't' ? 'Tuckshop' : 'Office';
     var scriptUrl = prefix === 't' ? TUCKSHOP_SCRIPT_URL : SCRIPT_URL;
+    var writeUrl  = prefix === 't' ? TUCKSHOP_BACKEND_URL : LUNCH_BACKEND_URL;
 
     // Collect rows
     var rows = [];
@@ -2103,7 +2108,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     try {
       var result;
       try {
-        result = await _postWithRetry(scriptUrl, data);
+        result = await _postWithRetry(writeUrl, data);
       } catch(updateErr) {
         // El guardado falló en confirmar. Antes de mostrar error,
         // verificar vía la API si el cambio en realidad sí se aplicó.
@@ -2142,7 +2147,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
           // 3. Guardar en GS y actualizar display
           renderTuckshopProducts();
           if (TUCKSHOP_SCRIPT_URL !== 'YOUR_TUCKSHOP_SCRIPT_URL_HERE') {
-            fetch(TUCKSHOP_SCRIPT_URL, {
+            fetch(TUCKSHOP_BACKEND_URL, {
               method: 'POST',
               body: JSON.stringify({ action: 'updateStock', stock: tuckshopStock }),
               headers: { 'Content-Type': 'text/plain' }
@@ -2378,7 +2383,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     setTimeout(function(){ errEl.style.display = 'none'; }, 2000);
 
     if (TUCKSHOP_SCRIPT_URL !== "YOUR_TUCKSHOP_SCRIPT_URL_HERE") {
-      fetch(TUCKSHOP_SCRIPT_URL, {
+      fetch(TUCKSHOP_BACKEND_URL, {
         method: 'POST',
         body: JSON.stringify({ action: 'saveProducts', date: date, products: products, stock: tuckshopStock }),
         headers: { 'Content-Type': 'text/plain' }
@@ -2612,7 +2617,7 @@ var price = parseFloat(sel.value) || 0;
     var attemptTuckshopSubmit = function() {
       var controller = new AbortController();
       var timer = setTimeout(function(){ controller.abort(); }, 8000);
-      return fetch(TUCKSHOP_SCRIPT_URL, { method:'POST', body:JSON.stringify(data), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
+      return fetch(TUCKSHOP_BACKEND_URL, { method:'POST', body:JSON.stringify(data), headers:{'Content-Type':'text/plain'}, signal: controller.signal })
         .then(function(r) { clearTimeout(timer); return r.json(); })
         .catch(function(err) { clearTimeout(timer); throw err; });
     };
@@ -3171,7 +3176,7 @@ var price = parseFloat(sel.value) || 0;
     statusEl.style.cssText = 'display:block;background:#f0f4ff;border:1px solid #c0ccf0;color:#1A2E6B;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
     statusEl.textContent = 'Saving...';
     try {
-      var result = await _postWithRetry(SCRIPT_URL, { action: 'saveLunchTypes', rows: rows });
+      var result = await _postWithRetry(LUNCH_BACKEND_URL, { action: 'saveLunchTypes', rows: rows });
       if (result.result === 'success') {
         statusEl.style.cssText = 'display:block;background:#e8f5ee;border:1px solid #a8d5b8;color:#1a5c2e;border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;';
         statusEl.textContent = '✅ Saved! Forms will use new prices on next load.';
