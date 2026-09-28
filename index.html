@@ -246,7 +246,7 @@
     <div class="school-name">Old Harbour Primary &amp; Infant School</div>
     <div class="school-sub">Old Harbour, Saint Catherine Parish, Jamaica</div>
     <div class="header-tag">Daily Lunch Order</div>
-    <div class="app-version">Version 1.1 · Sep 25 2026</div>
+    <div class="app-version">Version 1.2 · Sep 28 2026</div>
   </div>
 </header>
 
@@ -491,12 +491,25 @@
       </form>
     </div>
 
+    <!-- BREAKFAST SALES -->
+    <div class="card" style="margin-top:1rem;">
+      <div class="section-label">🍳 Breakfast Sales</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:150px;">
+          <label for="breakfast-amount" style="display:block;margin-bottom:4px;">Today's breakfast total (J$)</label>
+          <input type="number" id="breakfast-amount" min="0" step="1" placeholder="0"/>
+        </div>
+        <button type="button" class="find-btn" id="breakfast-save-btn" onclick="saveBreakfast()">Save</button>
+      </div>
+      <div id="breakfast-status" style="display:none;font-size:0.85rem;margin-top:0.6rem;padding:0.6rem 0.9rem;border-radius:10px;"></div>
+    </div>
+
     <!-- SALES SUMMARY PANEL -->
     <div class="card" style="margin-top:1rem;">
       <div class="section-label">📊 Today's Sales Summary</div>
       <div id="sales-summary-display" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.5rem;">
         <div style="background:var(--blue-l);border-radius:10px;padding:1rem;text-align:center;">
-          <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen + Office</div>
+          <div style="font-size:0.78rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Canteen + Office + Breakfast</div>
           <div id="sales-lunch-total" style="font-size:1.4rem;font-weight:700;color:var(--blue);">—</div>
         </div>
         <div style="background:#e8f5ee;border-radius:10px;padding:1rem;text-align:center;">
@@ -1466,6 +1479,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       loadOfficeNames();
       loadSalesSummary();
       loadSalesCharts();
+      loadBreakfast();
       document.getElementById('o-date').value = today;
     }
     if (tab === 'classes') {
@@ -2863,6 +2877,50 @@ var price = parseFloat(sel.value) || 0;
           + '</div>';
       }
     }).catch(function(){ msgEl.className='edit-msg notfound'; msgEl.textContent='Error. Please try again.'; });
+  }
+
+  // ── BREAKFAST SALES ──
+  function loadBreakfast() {
+    var el = document.getElementById('breakfast-amount');
+    if (!el) return;
+    _sheetsApiGetFresh(LUNCH_SHEET_ID, 'Breakfast!A2:B2')
+      .then(function(rows) {
+        var d = rows.length ? String(rows[0][0] || '').replace(/'/g, '').trim().substring(0, 10) : '';
+        el.value = (d === getJamaicaToday()) ? String(rows[0][1] || '').replace(/,/g, '') : '';
+      })
+      .catch(function() { el.value = ''; });
+  }
+
+  async function saveBreakfast() {
+    var input = document.getElementById('breakfast-amount');
+    var btn   = document.getElementById('breakfast-save-btn');
+    var st    = document.getElementById('breakfast-status');
+    var ok  = 'display:block;background:#e8f5ee;border:1px solid #aeddc0;color:#145229;';
+    var bad = 'display:block;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;';
+    var base = 'font-size:0.85rem;margin-top:0.6rem;padding:0.6rem 0.9rem;border-radius:10px;';
+    var amount = parseFloat(input.value);
+    if (input.value === '' || isNaN(amount) || amount < 0) {
+      st.style.cssText = base + bad;
+      st.textContent = 'Please enter a valid amount.';
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      var res = await _postWithRetry(LUNCH_BACKEND_URL, { action: 'saveBreakfast', date: getJamaicaToday(), amount: amount });
+      if (res.result === 'success') {
+        st.style.cssText = base + ok;
+        st.textContent = '✅ Breakfast total saved: J$ ' + amount.toLocaleString('en-JM');
+        loadSalesSummary();
+        setTimeout(function() { st.style.display = 'none'; }, 3000);
+      } else {
+        throw new Error(res.message || 'Error');
+      }
+    } catch (e) {
+      st.style.cssText = base + bad;
+      st.textContent = '❌ Error saving. Please try again.';
+      console.error(e);
+    }
+    btn.disabled = false; btn.textContent = 'Save';
   }
 
   function loadSalesSummary() {
