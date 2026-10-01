@@ -246,7 +246,7 @@
     <div class="school-name">Old Harbour Primary &amp; Infant School</div>
     <div class="school-sub">Old Harbour, Saint Catherine Parish, Jamaica</div>
     <div class="header-tag">Daily Lunch Order</div>
-    <div class="app-version">Version 1.4 · Oct 1 2026</div>
+    <div class="app-version">Version 1.5 · Oct 1 2026</div>
   </div>
 </header>
 
@@ -1002,11 +1002,81 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       _sheetsApiGet(LUNCH_SHEET_ID, 'Menu!A1:Z100'),
       _sheetsApiGet(LUNCH_SHEET_ID, 'LunchTypes!A1:Z100')
     ]).then(function(results) {
+      _lastMenuSig = JSON.stringify(results);
       _applyMenuAndTypesFromRows(results[0], results[1]);
     }).catch(function(err) {
       console.error('Menu/types load error (Sheets API):', err);
     });
   }
+
+  // ── AUTO-REFRESH DEL MENÚ Y LUNCH TYPES ──
+  // Revisa cada 2 minutos (7:45–9:00 AM, solo con la página visible) y
+  // cada vez que la persona vuelve a la pestaña. Si la cocina cambió el
+  // menú o los precios, la página se actualiza sola. Si el profesor ya
+  // empezó a llenar un pedido, no se le borra: se actualiza el menú y se
+  // muestra un aviso para que revise sus items.
+  var _lastMenuSig = '';
+
+  function _lunchFormsUntouched() {
+    var untouched = true;
+    ['c', 'o'].forEach(function(p) {
+      var el = document.getElementById(p + '-items');
+      if (!el) return;
+      el.querySelectorAll('.item-row').forEach(function(row) {
+        var sel = row.querySelector('select');
+        var inp = row.querySelector('input');
+        if ((sel && sel.selectedIndex > 0) || (inp && inp.value !== '')) untouched = false;
+      });
+    });
+    return untouched;
+  }
+
+  function _showMenuUpdatedNotice() {
+    ['c', 'o'].forEach(function(p) {
+      var statusEl = document.getElementById(p + '-status');
+      if (!statusEl) return;
+      statusEl.className = 'status-msg error';
+      statusEl.innerHTML = '⚠️ The menu or prices were just updated. Please check your items before submitting.';
+      statusEl.style.display = 'block';
+    });
+  }
+
+  function refreshMenuIfChanged() {
+    Promise.all([
+      _sheetsApiGet(LUNCH_SHEET_ID, 'Menu!A1:Z100'),
+      _sheetsApiGet(LUNCH_SHEET_ID, 'LunchTypes!A1:Z100')
+    ]).then(function(results) {
+      var sig = JSON.stringify(results);
+      if (!_lastMenuSig || sig === _lastMenuSig) { _lastMenuSig = sig; return; }
+      _lastMenuSig = sig;
+      if (_lunchFormsUntouched()) {
+        _applyMenuAndTypesFromRows(results[0], results[1]);
+      } else {
+        // No borrar lo que el profesor está llenando: actualizar el menú
+        // y los precios para las filas nuevas, y avisar.
+        var cRows = Array.from(document.getElementById('c-items').children);
+        var oRows = Array.from(document.getElementById('o-items').children);
+        _applyMenuAndTypesFromRows(results[0], results[1]);
+        var cEl = document.getElementById('c-items'), oEl = document.getElementById('o-items');
+        cEl.innerHTML = ''; cRows.forEach(function(r){ cEl.appendChild(r); });
+        oEl.innerHTML = ''; oRows.forEach(function(r){ oEl.appendChild(r); });
+        _showMenuUpdatedNotice();
+      }
+    }).catch(function(err) {
+      console.error('Menu auto-refresh error (Sheets API):', err);
+    });
+  }
+
+  setInterval(function() {
+    if (document.visibilityState !== 'visible') return;
+    var t = getJamaicaHourMinute();
+    var mins = t.h * 60 + t.m;
+    if (mins >= (7 * 60 + 45) && mins < (9 * 60)) refreshMenuIfChanged();
+  }, 120000);
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') refreshMenuIfChanged();
+  });
 
   var todayMenuItems = [];
 
