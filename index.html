@@ -184,13 +184,21 @@
     .menu-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--blue); font-weight: 600; }
     .menu-date-display { font-size: 0.82rem; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px; }
     .menu-date-display.stale { color: var(--red); border-color: #f5bfbf; background: #fdf0f0; }
-    .menu-items-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 1rem; }
-    .menu-item-chip { display: flex; justify-content: space-between; align-items: center; background: var(--blue-l); border-radius: 8px; padding: 6px 12px; font-size: 0.85rem; }
-    .menu-item-name { color: var(--blue); font-weight: 500; }
-    .menu-item-price { color: var(--gold); font-weight: 700; font-size: 0.88rem; white-space: nowrap; margin-left: 8px; }
+    .menu-items-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 1rem; }
+    .menu-item-chip { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; column-gap: 8px; background: var(--blue-l); border-radius: 8px; padding: 6px 12px; font-size: 0.85rem; min-width: 0; }
+    .menu-item-name { color: var(--blue); font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+    .menu-item-price { color: var(--gold); font-weight: 700; font-size: 0.88rem; white-space: nowrap; margin-left: auto; }
     .menu-note { margin-top: 1rem; font-size: 0.83rem; color: var(--muted); background: var(--gold-l); border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; padding: 8px 12px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; overflow-wrap: break-word; }
     .menu-empty { font-size: 0.88rem; color: var(--muted); text-align: center; padding: 1rem 0; font-style: italic; }
     .menu-edit-btn { font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600; background: none; border: 1.5px solid var(--border); border-radius: 20px; color: var(--muted); padding: 4px 14px; cursor: pointer; transition: all 0.18s; }
+    /* Teléfono: estas reglas van DESPUÉS de las de arriba para que sí se apliquen */
+    @media (max-width: 540px) {
+      .menu-items-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+      .menu-item-chip { padding: 6px 8px; font-size: 0.78rem; }
+      .menu-item-price { font-size: 0.8rem; }
+      .menu-card { padding: 1.1rem 0.85rem; }
+      .menu-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    }
 
 
     /* MENU EDITOR */
@@ -246,7 +254,7 @@
     <div class="school-name">Old Harbour Primary &amp; Infant School</div>
     <div class="school-sub">Old Harbour, Saint Catherine Parish, Jamaica</div>
     <div class="header-tag">Daily Lunch Order</div>
-    <div class="app-version">Version 1.5 · Oct 1 2026</div>
+    <div class="app-version">Version 1.6 · Oct 3 2026</div>
   </div>
 </header>
 
