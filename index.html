@@ -254,7 +254,7 @@
     <div class="school-name">Old Harbour Primary &amp; Infant School</div>
     <div class="school-sub">Old Harbour, Saint Catherine Parish, Jamaica</div>
     <div class="header-tag">Daily Lunch Order</div>
-    <div class="app-version">Version 1.6 · Oct 3 2026</div>
+    <div class="app-version">Version 1.6.6 · Oct 7 2026</div>
   </div>
 </header>
 
@@ -758,7 +758,7 @@
   <div class="pw-box">
     <h3 id="pw-title">🔒 Access</h3>
     <p id="pw-desc">Enter the password to continue.</p>
-    <input type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()"/>
+    <input type="password" id="pw-input" placeholder="Password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'||event.keyCode===13){event.preventDefault();checkPw();}"/>
     <div class="pw-error" id="pw-error"></div>
     <div class="pw-btns">
       <button class="pw-btn-cancel" onclick="closePw()">Cancel</button>
@@ -1087,6 +1087,40 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   });
 
   var todayMenuItems = [];
+  // ── Lunch types con el MISMO nombre y DISTINTO precio ──
+  // Cada fila de Admin es un tipo distinto. Si dos se llaman igual, en las
+  // listas se muestran con su precio ("Adult Rice — J$600"), pero en la hoja
+  // se guarda solo el nombre (data-name) y el precio en su columna.
+  function _pnum(p) { var n = parseFloat(String(p == null ? '' : p).replace(/[^0-9.]/g, '')); return isNaN(n) ? null : n; }
+  function _nmKey(x) { return String(x || '').toLowerCase().trim().replace(/\s+/g, ' '); }
+  function _escAttr(x) { return String(x).replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
+  function _optName(o) { return o ? (o.getAttribute('data-name') || o.text) : ''; }
+  function _dupLabel(list) {
+    var counts = {};
+    list.forEach(function(t) { var k = _nmKey(t.name); counts[k] = (counts[k] || 0) + 1; });
+    return function(t) { return counts[_nmKey(t.name)] > 1 && _pnum(t.price) !== null ? t.name + ' — J$' + _pnum(t.price) : t.name; };
+  }
+  function _selIndex(list, selName, selPrice) {
+    var idx = -1;
+    if (!selName) return idx;
+    list.forEach(function(t, i) { if (idx < 0 && _nmKey(t.name) === _nmKey(selName) && _pnum(t.price) === _pnum(selPrice)) idx = i; });
+    if (idx < 0) list.forEach(function(t, i) { if (idx < 0 && _nmKey(t.name) === _nmKey(selName)) idx = i; });
+    return idx;
+  }
+  // Opciones de Lunch Type para los pedidos (value = precio)
+  function _typeOptions(list, selName, selPrice) {
+    var label = _dupLabel(list), selIdx = _selIndex(list, selName, selPrice);
+    return list.map(function(t, i) {
+      return '<option value="' + (t.price || '') + '" data-name="' + _escAttr(t.name) + '"' + (i === selIdx ? ' selected' : '') + '>' + label(t) + '</option>';
+    }).join('');
+  }
+  // Opciones para Edit Menu (value = posición, para distinguir nombres iguales)
+  function _menuOptions(list, selName, selPrice) {
+    var label = _dupLabel(list), selIdx = _selIndex(list, selName, selPrice);
+    return list.map(function(t, i) {
+      return '<option value="' + i + '" data-name="' + _escAttr(t.name) + '" data-price="' + _escAttr(t.price == null ? '' : t.price) + '"' + (i === selIdx ? ' selected' : '') + '>' + label(t) + '</option>';
+    }).join('');
+  }
 
   function renderMenu(saved) {
     if (!saved) return;
@@ -1138,6 +1172,8 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     }
     // Ask for menu password
     pendingMenuAction = true;
+    pendingTuckshopEdit = false;
+    pendingTab = null;
     document.getElementById('pw-title').textContent = '📋 Menu Editor';
     document.getElementById('pw-desc').textContent  = 'Enter the password to edit today\'s menu.';
     document.getElementById('pw-input').value = '';
@@ -1188,11 +1224,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         return !(LUNCH_TYPES_CLASS || []).some(function(c){ return c.name === o.name; });
       })
     );
-    var opts = '<option value="">— Select item —</option>' +
-      allMenuTypes.map(function(t) {
-        var escaped = t.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-        return '<option value="' + escaped + '"' + (t.name === selectedName ? ' selected' : '') + '>' + t.name + '</option>';
-      }).join('');
+    var opts = '<option value="">— Select item —</option>' + _menuOptions(allMenuTypes, selectedName, selectedPrice);
     var sel = document.createElement('select');
     sel.innerHTML = opts;
     var priceInput = document.createElement('input');
@@ -1205,17 +1237,8 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       priceInput.style.cursor = 'default';
     }
     sel.onchange = function() {
-      var name = this.value;
-      if (!name) { priceInput.value = ''; priceInput.readOnly = false; priceInput.style.background = ''; return; }
-      var norm = function(s){ return s.toLowerCase().trim().replace(/\s+/g,' '); };
-      var match = null;
-      var freshTypes = (LUNCH_TYPES_CLASS || []).concat(
-        (LUNCH_TYPES_OFFICE || []).filter(function(o){
-          return !(LUNCH_TYPES_CLASS||[]).some(function(c){ return norm(c.name)===norm(o.name); });
-        })
-      );
-      freshTypes.forEach(function(t){ if (norm(t.name) === norm(name)) match = t.price; });
-      console.log('Menu lookup:', name, '| match:', match, '| freshTypes:', JSON.stringify(freshTypes.map(function(t){return t.name;})));
+      if (!this.value) { priceInput.value = ''; priceInput.readOnly = false; priceInput.style.background = ''; return; }
+      var match = this.options[this.selectedIndex].getAttribute('data-price');
       if (match) {
         priceInput.value = match;
         priceInput.readOnly = true;
@@ -1243,7 +1266,8 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     var note  = document.getElementById('menu-note-input').value.trim();
     var items = [];
     document.getElementById('menu-rows').querySelectorAll('.menu-row').forEach(function(row) {
-      var sel   = row.querySelector('select').value;
+      var selEl = row.querySelector('select');
+      var sel   = selEl.value ? _optName(selEl.options[selEl.selectedIndex]) : '';
       var price = row.querySelector('input[type="text"]').value.trim();
       if (sel) items.push({ name: sel, price: price });
     });
@@ -1461,6 +1485,8 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   var tuckshopUnlocked = false;
 
   function switchTab(tab) {
+    pendingMenuAction = false;
+    pendingTuckshopEdit = false;
     if (!appUnlocked) {
       pendingTab = tab;
       showModal('🍽️ Lunch Order System', 'Enter the password to access the lunch order system.');
@@ -1525,8 +1551,16 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         // App unlocked, now ask for tuckshop edit password
         showModal('🔒 Tuckshop Editor', 'Enter the Tuckshop editor password.');
       } else {
-        activateTab(pendingTab);
+        var tab = pendingTab || 'classes';
         pendingTab = null;
+        // Office y Admin SIEMPRE piden su propia contraseña: si se tocó Office/Admin
+        // con la app cerrada, después de la general se pide la de Office/Admin
+        // (antes entraba a Office solo con la general).
+        if ((tab === 'office' && !officeUnlocked) || (tab === 'admin' && !adminUnlocked)) {
+          switchTab(tab);
+        } else {
+          activateTab(tab);
+        }
       }
     } else {
       document.getElementById('pw-error').textContent = 'Incorrect password. Try again.';
@@ -1538,6 +1572,11 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   function closePw() {
     document.getElementById('pw-overlay').classList.remove('show');
     pendingTab = null;
+    // Si se cancela la contraseña de Edit Menu o del editor de Tuckshop, olvidar
+    // esa acción; si no, la siguiente contraseña (por ejemplo la de Office) se
+    // comparaba con la del menú y salía "Incorrect password".
+    pendingMenuAction = false;
+    pendingTuckshopEdit = false;
   }
 
   function activateTab(tab) {
@@ -1579,11 +1618,17 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   // ── ROWS ──
   var rowCounter = 0;
 
+  // v1.6.2: los dropdowns de Lunch Type salen en orden alfabético (A–Z),
+  // sin importar el orden de Admin. Admin y Edit Menu no cambian.
+  function _sortTypesAZ(list) {
+    return (list || []).slice().sort(function(a, b) {
+      return String(a.name).localeCompare(String(b.name), 'en', { sensitivity: 'base', numeric: true }) || ((_pnum(a.price) || 0) - (_pnum(b.price) || 0));
+    });
+  }
+
   function lunchOptions(prefix) {
-    var types = LUNCH_TYPES_CLASS; // both classes and office use same admin list
-    return '<option value="">— Select —</option>' + types.map(function(t) {
-      return '<option value="' + (t.price || '') + '">' + t.name + '</option>';
-    }).join('');
+    var types = _sortTypesAZ(LUNCH_TYPES_CLASS); // both classes and office use same admin list
+    return '<option value="">— Select —</option>' + _typeOptions(types);
   }
 
   function priceOptions() {
@@ -1614,8 +1659,9 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     lunchSel.onchange = function() {
       if (this.value) {
         if ((prefix === 'c' || prefix === 'o') && todayMenuItems.length > 0) {
-          var sel = this.options[this.selectedIndex].text.toLowerCase().trim();
-          var ok  = todayMenuItems.some(function(m){ return m === sel || sel.indexOf(m) !== -1 || m.indexOf(sel) !== -1; });
+          var sel = _optName(this.options[this.selectedIndex]).toLowerCase().trim();
+          var _nm = function(x){ return String(x || '').toLowerCase().trim().replace(/\s+/g, ' '); }; // v1.6.1: solo nombre completo
+          var ok  = todayMenuItems.some(function(m){ return _nm(m) === _nm(sel); });
           if (!ok) {
             menuWarn.style.display = 'block';
             priceSel.value = '';
@@ -1689,7 +1735,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       var input     = row.querySelector('input');
       var lunchSel  = selects[0];
       var priceSel  = selects[1];
-      var lunchType = lunchSel.selectedIndex > 0 ? lunchSel.options[lunchSel.selectedIndex].text : '';
+      var lunchType = lunchSel.selectedIndex > 0 ? _optName(lunchSel.options[lunchSel.selectedIndex]) : '';
       var amt       = parseFloat(input.value)      || 0;
       var price     = parseFloat(priceSel.value) || 0;
       // Highlight missing fields
@@ -2030,12 +2076,10 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     var div = document.createElement('div');
     div.className = 'item-row';
     div.id = id;
-    var lunchTypes = prefix === 'c' || prefix === 'c-edit' ? LUNCH_TYPES_CLASS : LUNCH_TYPES_OFFICE;
+    var lunchTypes = _sortTypesAZ(prefix === 'c' || prefix === 'c-edit' ? LUNCH_TYPES_CLASS : LUNCH_TYPES_OFFICE);
     var realPrefix = prefix.replace('-edit', '');
     var opts = '<option value="">— Select —</option>' +
-      lunchTypes.map(function(t) {
-        return '<option value="' + (t.price || '') + '"' + (t.name === selectedLunch ? ' selected' : '') + '>' + t.name + '</option>';
-      }).join('');
+      _typeOptions(lunchTypes, selectedLunch, selectedPrice);
     var priceOpts = '<option value="">— Price —</option>' +
       PRICES.map(function(p) {
         return '<option' + (String(p) === String(selectedPrice) ? ' selected' : '') + '>' + p + '</option>';
@@ -2135,7 +2179,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         var input     = row.querySelector('input');
         var lunchSel  = selects[0];
         var priceSel  = selects[1];
-        var lunchType = lunchSel.selectedIndex > 0 ? lunchSel.options[lunchSel.selectedIndex].text : '';
+        var lunchType = lunchSel.selectedIndex > 0 ? _optName(lunchSel.options[lunchSel.selectedIndex]) : '';
         var amt       = parseFloat(input.value)    || 0;
         var price     = parseFloat(priceSel.value) || 0;
         lunchSel.style.borderColor  = lunchType ? '' : '#B22234';
@@ -2280,6 +2324,8 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   function openTuckshopEditor() {
     if (!document.getElementById('tuckshop-editor').classList.contains('open')) {
       pendingTuckshopEdit = true;
+      pendingMenuAction = false;
+      pendingTab = null;
       showModal('🔒 Tuckshop Editor', 'Enter the password to edit products and inventory.');
     } else {
       document.getElementById('tuckshop-editor').classList.remove('open');
@@ -3211,18 +3257,18 @@ var price = parseFloat(sel.value) || 0;
       .then(function(rows) {
         container.innerHTML = '';
         if (rows.length <= 1) { adminAddRow(); return; }
-        var merged = {};
+        // Una fila por cada fila de la hoja: los nombres repetidos con
+        // distinto precio se conservan (antes se juntaban y se perdía uno).
+        var added = 0;
         for (var i = 1; i < rows.length; i++) {
           var name = rows[i][0];
           if (!name) continue;
           var cp = rows[i][1] !== undefined && rows[i][1] !== '' ? parseFloat(rows[i][1]) : null;
           var op = rows[i][2] !== undefined && rows[i][2] !== '' ? parseFloat(rows[i][2]) : null;
-          merged[name] = { name: name, classPrice: cp, officePrice: op };
+          adminAddRow(name, cp, op);
+          added++;
         }
-        Object.values(merged).forEach(function(item) {
-          adminAddRow(item.name, item.classPrice, item.officePrice);
-        });
-        if (Object.keys(merged).length === 0) adminAddRow();
+        if (added === 0) adminAddRow();
       })
       .catch(function() { container.innerHTML = ''; adminAddRow(); });
   }
