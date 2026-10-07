@@ -254,7 +254,7 @@
     <div class="school-name">Old Harbour Primary &amp; Infant School</div>
     <div class="school-sub">Old Harbour, Saint Catherine Parish, Jamaica</div>
     <div class="header-tag">Daily Lunch Order</div>
-    <div class="app-version">Version 1.6 · Oct 3 2026</div>
+    <div class="app-version">Version 1.6.2 · Oct 7 2026</div>
   </div>
 </header>
 
@@ -1579,8 +1579,16 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   // ── ROWS ──
   var rowCounter = 0;
 
+  // v1.6.2: los dropdowns de Lunch Type salen en orden alfabético (A–Z),
+  // sin importar el orden de Admin. Admin y Edit Menu no cambian.
+  function _sortTypesAZ(list) {
+    return (list || []).slice().sort(function(a, b) {
+      return String(a.name).localeCompare(String(b.name), 'en', { sensitivity: 'base', numeric: true });
+    });
+  }
+
   function lunchOptions(prefix) {
-    var types = LUNCH_TYPES_CLASS; // both classes and office use same admin list
+    var types = _sortTypesAZ(LUNCH_TYPES_CLASS); // both classes and office use same admin list
     return '<option value="">— Select —</option>' + types.map(function(t) {
       return '<option value="' + (t.price || '') + '">' + t.name + '</option>';
     }).join('');
@@ -1615,7 +1623,8 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       if (this.value) {
         if ((prefix === 'c' || prefix === 'o') && todayMenuItems.length > 0) {
           var sel = this.options[this.selectedIndex].text.toLowerCase().trim();
-          var ok  = todayMenuItems.some(function(m){ return m === sel || sel.indexOf(m) !== -1 || m.indexOf(sel) !== -1; });
+          var _nm = function(x){ return String(x || '').toLowerCase().trim().replace(/\s+/g, ' '); }; // v1.6.1: solo nombre completo
+          var ok  = todayMenuItems.some(function(m){ return _nm(m) === _nm(sel); });
           if (!ok) {
             menuWarn.style.display = 'block';
             priceSel.value = '';
@@ -2030,7 +2039,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     var div = document.createElement('div');
     div.className = 'item-row';
     div.id = id;
-    var lunchTypes = prefix === 'c' || prefix === 'c-edit' ? LUNCH_TYPES_CLASS : LUNCH_TYPES_OFFICE;
+    var lunchTypes = _sortTypesAZ(prefix === 'c' || prefix === 'c-edit' ? LUNCH_TYPES_CLASS : LUNCH_TYPES_OFFICE);
     var realPrefix = prefix.replace('-edit', '');
     var opts = '<option value="">— Select —</option>' +
       lunchTypes.map(function(t) {
