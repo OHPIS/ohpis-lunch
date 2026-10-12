@@ -1675,7 +1675,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     menuWarn.textContent = "⚠️ Not available in today’s menu";
     lunchSel.onchange = function() {
       if (this.value) {
-        if ((prefix === 'c' || prefix === 'o') && todayMenuItems.length > 0) {
+        if ((prefix === 'c' || prefix === 'o' || prefix === 'c-edit' || prefix === 'o-edit') && todayMenuItems.length > 0) {
           // v1.6.7: misma regla que la ✓ — nombre único → nombre; nombre repetido → nombre + precio
           var ok  = _inTodayMenu(_optName(this.options[this.selectedIndex]), this.value, LUNCH_TYPES_CLASS);
           if (!ok) {
@@ -2104,6 +2104,11 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     lunchSel.innerHTML = opts;
     var priceSel = document.createElement('select');
     priceSel.innerHTML = priceOpts;
+    // v1.6.7: aviso de menú también en Edit Order. Lo que ya estaba en la orden
+    // no se bloquea; solo se revisa cuando el profesor cambia el Lunch Type.
+    var menuWarn = document.createElement('span');
+    menuWarn.style.cssText = 'display:none;color:#CC0000;font-size:0.78rem;grid-column:1/-1;';
+    menuWarn.textContent = "⚠️ Not available in today’s menu";
     if (selectedPrice) {
       var spStr = String(selectedPrice);
       if (!Array.from(priceSel.options).some(function(o){ return o.value == spStr || o.text == spStr; })) {
@@ -2116,6 +2121,15 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     }
     lunchSel.onchange = function() {
       if (this.value) {
+        if (todayMenuItems.length > 0 && !_inTodayMenu(_optName(this.options[this.selectedIndex]), this.value, lunchTypes)) {
+          menuWarn.style.display = 'block';
+          priceSel.value = '';
+          _lockPriceSel(priceSel);
+          priceSel.style.borderColor = '#f5bfbf';
+          calcEditGrand(realPrefix);
+          return;
+        }
+        menuWarn.style.display = 'none';
         var price2 = this.value;
         if (price2 && !Array.from(priceSel.options).some(function(o){ return o.value == price2; })) {
           var opt2 = document.createElement('option');
@@ -2125,6 +2139,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         priceSel.value = price2;
         _lockPriceSel(priceSel);
       } else {
+        menuWarn.style.display = 'none';
         priceSel.value = '';
         priceSel.style.pointerEvents = '';
         priceSel.style.background = '';
@@ -2144,6 +2159,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     removeBtn.onclick = function() { document.getElementById(id).remove(); calcEditGrand(realPrefix); };
     div.appendChild(lunchSel); div.appendChild(amtInput);
     div.appendChild(priceSel); div.appendChild(subtotal); div.appendChild(removeBtn);
+    div.appendChild(menuWarn);
     document.getElementById(prefix.replace('-edit','') + '-edit-items').appendChild(div);
     calcEditGrand(realPrefix);
   }
