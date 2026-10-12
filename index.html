@@ -1108,10 +1108,16 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     return idx;
   }
   // Opciones de Lunch Type para los pedidos (value = precio)
+  // Los que están en el menú de hoy salen con "✓ " delante (solo se ve en la lista;
+  // a la hoja se guarda el nombre sin la marca, porque se usa data-name).
+  function _inTodayMenu(name) {
+    var k = _nmKey(name);
+    return todayMenuItems.some(function(m) { return _nmKey(m) === k; });
+  }
   function _typeOptions(list, selName, selPrice) {
     var label = _dupLabel(list), selIdx = _selIndex(list, selName, selPrice);
     return list.map(function(t, i) {
-      return '<option value="' + (t.price || '') + '" data-name="' + _escAttr(t.name) + '"' + (i === selIdx ? ' selected' : '') + '>' + label(t) + '</option>';
+      return '<option value="' + (t.price || '') + '" data-name="' + _escAttr(t.name) + '"' + (i === selIdx ? ' selected' : '') + '>' + (_inTodayMenu(t.name) ? '✓ ' : '') + label(t) + '</option>';
     }).join('');
   }
   // Opciones para Edit Menu (value = posición, para distinguir nombres iguales)
