@@ -254,7 +254,7 @@
     <div class="school-name">Old Harbour Primary &amp; Infant School</div>
     <div class="school-sub">Old Harbour, Saint Catherine Parish, Jamaica</div>
     <div class="header-tag">Daily Lunch Order</div>
-    <div class="app-version">Version 1.6.6 · Oct 7 2026</div>
+    <div class="app-version">Version 1.6.7 · Oct 12 2026</div>
   </div>
 </header>
 
@@ -1087,6 +1087,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   });
 
   var todayMenuItems = [];
+  var todayMenuPairs = []; // nombre + precio del menú de hoy
   // ── Lunch types con el MISMO nombre y DISTINTO precio ──
   // Cada fila de Admin es un tipo distinto. Si dos se llaman igual, en las
   // listas se muestran con su precio ("Adult Rice — J$600"), pero en la hoja
@@ -1110,14 +1111,23 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   // Opciones de Lunch Type para los pedidos (value = precio)
   // Los que están en el menú de hoy salen con "✓ " delante (solo se ve en la lista;
   // a la hoja se guarda el nombre sin la marca, porque se usa data-name).
-  function _inTodayMenu(name) {
-    var k = _nmKey(name);
-    return todayMenuItems.some(function(m) { return _nmKey(m) === k; });
+  // ¿Está este lunch type en el menú de hoy?
+  // - Nombre único en Admin → basta el nombre.
+  // - Nombre repetido en Admin → nombre + precio.
+  // - Item del menú sin precio → basta el nombre.
+  function _inTodayMenu(name, price, list) {
+    var k = _nmKey(name), p = _pnum(price);
+    var repeated = (list || []).filter(function(t) { return _nmKey(t.name) === k; }).length > 1;
+    return todayMenuPairs.some(function(m) {
+      if (m.name !== k) return false;
+      if (!repeated || m.price === null) return true;
+      return m.price === p;
+    });
   }
   function _typeOptions(list, selName, selPrice) {
     var label = _dupLabel(list), selIdx = _selIndex(list, selName, selPrice);
     return list.map(function(t, i) {
-      return '<option value="' + (t.price || '') + '" data-name="' + _escAttr(t.name) + '"' + (i === selIdx ? ' selected' : '') + '>' + (_inTodayMenu(t.name) ? '✓ ' : '') + label(t) + '</option>';
+      return '<option value="' + (t.price || '') + '" data-name="' + _escAttr(t.name) + '"' + (i === selIdx ? ' selected' : '') + '>' + (_inTodayMenu(t.name, t.price, list) ? '✓ ' : '') + label(t) + '</option>';
     }).join('');
   }
   // Opciones para Edit Menu (value = posición, para distinguir nombres iguales)
@@ -1139,6 +1149,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
 
     label.textContent = formatDate(dateStr);
     todayMenuItems = (saved.items || []).map(function(i){ return i.name.toLowerCase().trim(); });
+    todayMenuPairs = (saved.items || []).map(function(i){ return { name: _nmKey(i.name), price: _pnum(i.price) }; });
     if (dateStr !== todayStr) {
       label.classList.add('stale');
       label.textContent += ' ⚠️ Not updated today';
@@ -1665,9 +1676,8 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     lunchSel.onchange = function() {
       if (this.value) {
         if ((prefix === 'c' || prefix === 'o') && todayMenuItems.length > 0) {
-          var sel = _optName(this.options[this.selectedIndex]).toLowerCase().trim();
-          var _nm = function(x){ return String(x || '').toLowerCase().trim().replace(/\s+/g, ' '); }; // v1.6.1: solo nombre completo
-          var ok  = todayMenuItems.some(function(m){ return _nm(m) === _nm(sel); });
+          // v1.6.7: misma regla que la ✓ — nombre único → nombre; nombre repetido → nombre + precio
+          var ok  = _inTodayMenu(_optName(this.options[this.selectedIndex]), this.value, LUNCH_TYPES_CLASS);
           if (!ok) {
             menuWarn.style.display = 'block';
             priceSel.value = '';
