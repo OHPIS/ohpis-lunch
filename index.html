@@ -254,7 +254,7 @@
     <div class="school-name">Old Harbour Primary &amp; Infant School</div>
     <div class="school-sub">Old Harbour, Saint Catherine Parish, Jamaica</div>
     <div class="header-tag">Daily Lunch Order</div>
-    <div class="app-version">Version 1.6.7 · Extended 10:00</div>
+    <div class="app-version">Version 1.6.7 · Oct 12 2026</div>
   </div>
 </header>
 
@@ -305,7 +305,7 @@
     <div class="card">
       <form id="classForm" novalidate>
         <div id="c-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
-          🔒 <span id="c-lock-text">Class orders are closed. Orders accepted 7:00 AM – 10:00 AM.</span>
+          🔒 <span id="c-lock-text">Class orders are closed. Orders accepted 7:00 AM – 9:00 AM.</span>
         </div>
         <div class="section-label">Class Lunch Order</div>
         <div class="form-grid">
@@ -583,7 +583,7 @@
       <div id="tuckshop-date-display" style="margin-bottom:0.8rem;"></div>
       <div id="tuckshop-products-display"><p class="menu-empty">No products set yet.</p></div>
       <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
-        <button type="button" class="menu-edit-btn" style="flex:1;" id="tuckshop-refresh-btn" onclick="var b=this;var t=getJamaicaHourMinute();var m=t.h*60+t.m;b.textContent='⏳ Refreshing...';if(m>=(10*60+5)){refreshStockOnly();}setTimeout(function(){b.textContent='✅ Updated';setTimeout(function(){b.textContent='🔄 Refresh Stock';},1200);},1000);">🔄 Refresh Stock</button>
+        <button type="button" class="menu-edit-btn" style="flex:1;" id="tuckshop-refresh-btn" onclick="var b=this;var t=getJamaicaHourMinute();var m=t.h*60+t.m;b.textContent='⏳ Refreshing...';if(m>=(9*60+35)){refreshStockOnly();}setTimeout(function(){b.textContent='✅ Updated';setTimeout(function(){b.textContent='🔄 Refresh Stock';},1200);},1000);">🔄 Refresh Stock</button>
         <button type="button" class="menu-edit-btn" style="flex:1;" onclick="openTuckshopEditor()">✏️ Edit Products &amp; Inventory</button>
       </div>
 
@@ -624,7 +624,7 @@
     <div class="card">
       <div class="section-label">Class Tuckshop Order</div>
       <div id="tuckshop-lock-msg" style="display:none;background:#fdf0f0;border:1px solid #f5bfbf;color:#8b1a1a;border-radius:10px;padding:0.8rem 1rem;font-size:0.88rem;margin-bottom:1rem;text-align:center;">
-        <span id="tuckshop-lock-text">🔒 Tuckshop orders accepted 7:00 AM – 10:00 AM only.</span>
+        <span id="tuckshop-lock-text">🔒 Tuckshop orders accepted 7:00 AM – 9:30 AM only.</span>
       </div>
       <form id="tuckshopForm" novalidate>
         <div class="form-grid">
@@ -1018,7 +1018,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   }
 
   // ── AUTO-REFRESH DEL MENÚ Y LUNCH TYPES ──
-  // Revisa cada 2 minutos (7:45–10:00 AM, solo con la página visible) y
+  // Revisa cada 2 minutos (7:45–9:00 AM, solo con la página visible) y
   // cada vez que la persona vuelve a la pestaña. Si la cocina cambió el
   // menú o los precios, la página se actualiza sola. Si el profesor ya
   // empezó a llenar un pedido, no se le borra: se actualiza el menú y se
@@ -1079,7 +1079,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     if (document.visibilityState !== 'visible') return;
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    if (mins >= (7 * 60 + 45) && mins < (10 * 60)) refreshMenuIfChanged();
+    if (mins >= (7 * 60 + 45) && mins < (9 * 60)) refreshMenuIfChanged();
   }, 120000);
 
   document.addEventListener('visibilitychange', function() {
@@ -1392,7 +1392,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     if (!tuckshopDate || tuckshopDate !== getJamaicaToday()) return false;
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    return mins >= (7 * 60 ) && mins < (10 * 60);
+    return mins >= (7 * 60 ) && mins < (9 * 60 + 30);
   }
 
   function applyTuckshopTimeLock() {
@@ -1405,11 +1405,11 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     var tDateEl   = document.getElementById('t-date');
     if (tDateEl) tDateEl.value = getJamaicaToday();
     if (!open) {
-      var inWindow = (function(){ var t = getJamaicaHourMinute(); var m = t.h*60+t.m; return m >= (7*60) && m < (10*60); })();
+      var inWindow = (function(){ var t = getJamaicaHourMinute(); var m = t.h*60+t.m; return m >= (7*60) && m < (9*60+30); })();
       if (lockMsg)   lockMsg.style.display = 'block';
       if (lockText)  lockText.textContent = (inWindow && (!tuckshopDate || tuckshopDate !== getJamaicaToday()))
         ? '⚠️ Tuckshop menu is not updated for today. Please update the menu to enable orders.'
-        : '🔒 Tuckshop orders accepted 7:00 AM – 10:00 AM only.';
+        : '🔒 Tuckshop orders accepted 7:00 AM – 9:30 AM only.';
       if (submitBtn) { submitBtn.disabled = true;  submitBtn.style.background = '#8f9dc7'; }
       if (addRowBtn) addRowBtn.disabled = true;
       if (editBtn)   { editBtn.disabled = true; editBtn.style.opacity = '0.4'; editBtn.style.cursor = 'not-allowed'; }
@@ -1443,7 +1443,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
     var open  = 7 * 60 ;
-    var close = 10 * 60; // todas las clases, incluido Infant, hasta las 10:00
+    var close = isInfantClass(cls) ? (9 * 60 + 30) : (9 * 60);
     return mins >= open && mins < close;
   }
 
@@ -1473,12 +1473,12 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     var addBtn       = document.querySelector('#tab-classes .btn-add-row');
     var editCanteBtn = document.getElementById('c-edit-canteen-btn');
     if (!open) {
-      var closeTime = '10:00 AM';
+      var closeTime = isInfantClass(cls) ? '9:30 AM' : '9:00 AM';
       lockText.textContent = cls === ''
-        ? 'Orders accepted 7:00 AM – 10:00 AM.'
+        ? 'Orders accepted 7:00 AM – 9:00 AM (Infant classes until 9:30 AM).'
         : isInfantClass(cls)
-          ? 'Infant orders accepted 7:00 AM – 10:00 AM only.'
-          : 'Class orders accepted 7:00 AM – 10:00 AM only.';
+          ? 'Infant orders accepted 7:00 AM – 9:30 AM only.'
+          : 'Class orders accepted 7:00 AM – 9:00 AM only.';
       if (lockMsg)      lockMsg.style.display   = 'block';
       if (submitBtn)    { submitBtn.disabled = true; submitBtn.style.background = '#8f9dc7'; }
       if (addBtn)       addBtn.disabled = true;
@@ -2424,11 +2424,11 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       })
       .catch(function(err){ console.error('Stock refresh error (Sheets API):', err); });
   }
-  // Timer: 30s during 7:00-10:00 AM Jamaica, disabled otherwise
+  // Timer: 30s during 7:00-9:31 AM Jamaica, disabled otherwise
   setInterval(function() {
     var t = getJamaicaHourMinute();
     var mins = t.h * 60 + t.m;
-    if (devOverrideTuckshop || (mins >= (7 * 60 ) && mins < (10 * 60))) {
+    if (devOverrideTuckshop || (mins >= (7 * 60 ) && mins < (9 * 60 + 30))) {
       refreshStockOnly();
     }
   }, 30000);
