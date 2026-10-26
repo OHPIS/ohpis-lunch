@@ -595,7 +595,7 @@
         </div>
         <div style="margin-bottom:1rem;">
           <label style="font-size:0.82rem;font-weight:500;color:var(--muted);display:block;margin-bottom:8px;">Patties available</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <div>
               <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Beef Patty</label>
               <input type="number" id="tuckshop-stock-beef" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
@@ -607,6 +607,10 @@
             <div>
               <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Chicken Patty</label>
               <input type="number" id="tuckshop-stock-chicken" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:3px;">Jerk Patty</label>
+              <input type="number" id="tuckshop-stock-jerk" min="0" placeholder="0" style="font-family:'DM Sans',sans-serif;font-size:0.93rem;border:1.5px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.6rem;width:100%;outline:none;"/>
             </div>
           </div>
         </div>
@@ -806,7 +810,7 @@ function _sheetsApiGetFresh(sheetId, range) {
 // Replica el mismo cálculo que hacía el Apps Script: stock inicial menos
 // la suma de patties ya pedidos hoy (filas TOTALS no canceladas).
 function _computeAvailableStock(initialStock) {
-  var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+  var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty', 'Jerk Patty'];
   var stock = {};
   for (var k in initialStock) stock[k] = initialStock[k];
   return _sheetsApiGet(TUCKSHOP_SHEET_ID, 'Tuckshop!A1:J3000').then(function(rows) {
@@ -952,7 +956,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   return attempt();
 }
   var tuckshopProducts    = [];
-  var tuckshopStock      = { 'Beef Patty': 0, 'Cheese Patty': 0, 'Chicken Patty': 0 };
+  var tuckshopStock      = { 'Beef Patty': 0, 'Cheese Patty': 0, 'Chicken Patty': 0, 'Jerk Patty': 0 };
   var tuckshopDate        = '';
   var tuckshopInitialized = false;
 
@@ -2230,7 +2234,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
 
     // ── Verificar stock de patties antes de actualizar (solo tuckshop) ──
     if (prefix === 't') {
-      var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+      var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty', 'Jerk Patty'];
       var stockErrors = [];
       PATTY_TYPES.forEach(function(pt) {
         // Cantidad original de este patty en la orden (parse como número)
@@ -2300,7 +2304,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       if (result.result === 'success') {
         // Recalcular stock de patties si es update de tuckshop
         if (prefix === 't') {
-          var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+          var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty', 'Jerk Patty'];
           // 1. Devolver las cantidades de la orden original al stock
           (editOriginalRows['t'] || []).forEach(function(r) {
             if (PATTY_TYPES.indexOf(r.product) !== -1) {
@@ -2365,7 +2369,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   }
 
   function loadTuckshopProducts() {
-    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty', 'Jerk Patty'];
     _sheetsApiGet(TUCKSHOP_SHEET_ID, 'TuckshopMenu!A1:Z100')
       .then(function(rows) {
         if (rows.length <= 1) { renderTuckshopProducts(); return; }
@@ -2399,7 +2403,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
 
   // Auto-refresh: solo actualiza el countdown de patties sin tocar el form
   function refreshStockOnly() {
-    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty', 'Jerk Patty'];
     _sheetsApiGet(TUCKSHOP_SHEET_ID, 'TuckshopMenu!A1:D100')
       .then(function(rows) {
         var initialStock = {};
@@ -2417,7 +2421,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         var chips = document.querySelectorAll('.menu-item-chip .menu-item-name');
         chips.forEach(function(chip) {
           var name = chip.textContent.replace(/\s*\(\d+ left\)/, '').trim();
-          if ((name === 'Beef Patty' || name === 'Cheese Patty' || name === 'Chicken Patty') && tuckshopStock[name] !== undefined) {
+          if ((name === 'Beef Patty' || name === 'Cheese Patty' || name === 'Chicken Patty' || name === 'Jerk Patty') && tuckshopStock[name] !== undefined) {
             chip.innerHTML = name + ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock[name] + ' left)</span>';
           }
         });
@@ -2460,7 +2464,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     }
     display.innerHTML = '<div class="menu-items-list">' +
       tuckshopProducts.map(function(p) {
-        var stockInfo = (p.name === 'Beef Patty' || p.name === 'Cheese Patty' || p.name === 'Chicken Patty') && tuckshopStock[p.name] !== undefined
+        var stockInfo = (p.name === 'Beef Patty' || p.name === 'Cheese Patty' || p.name === 'Chicken Patty' || p.name === 'Jerk Patty') && tuckshopStock[p.name] !== undefined
           ? ' <span style="font-size:0.75rem;color:var(--muted);">(' + tuckshopStock[p.name] + ' left)</span>' : '';
         return '<div class="menu-item-chip"><span class="menu-item-name">' + p.name + stockInfo + '</span>' +
                '<span class="menu-item-price">J$ ' + p.price + '</span></div>';
@@ -2475,6 +2479,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     document.getElementById('tuckshop-stock-beef').value    = tuckshopStock['Beef Patty']    || '';
     document.getElementById('tuckshop-stock-cheese').value  = tuckshopStock['Cheese Patty']  || '';
     document.getElementById('tuckshop-stock-chicken').value = tuckshopStock['Chicken Patty'] || '';
+    document.getElementById('tuckshop-stock-jerk').value    = tuckshopStock['Jerk Patty']    || '';
     document.getElementById('tuckshop-product-rows').innerHTML = '';
     if (tuckshopProducts.length) {
       tuckshopProducts.forEach(function(p){ addTuckshopProductRow(p.name, p.price); });
@@ -2482,6 +2487,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       addTuckshopProductRow('Beef Patty', '');
       addTuckshopProductRow('Cheese Patty', '');
       addTuckshopProductRow('Chicken Patty', '');
+      addTuckshopProductRow('Jerk Patty', '');
       addTuckshopProductRow('Bun and Cheese', '');
     }
   }
@@ -2513,6 +2519,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     tuckshopStock['Beef Patty']    = parseInt(document.getElementById('tuckshop-stock-beef').value)    || 0;
     tuckshopStock['Cheese Patty']  = parseInt(document.getElementById('tuckshop-stock-cheese').value)  || 0;
     tuckshopStock['Chicken Patty'] = parseInt(document.getElementById('tuckshop-stock-chicken').value) || 0;
+    tuckshopStock['Jerk Patty']    = parseInt(document.getElementById('tuckshop-stock-jerk').value)    || 0;
     renderTuckshopProducts();
   }
 
@@ -2546,6 +2553,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
     tuckshopStock['Beef Patty']    = parseInt(document.getElementById('tuckshop-stock-beef').value)    || 0;
     tuckshopStock['Cheese Patty']  = parseInt(document.getElementById('tuckshop-stock-cheese').value)  || 0;
     tuckshopStock['Chicken Patty'] = parseInt(document.getElementById('tuckshop-stock-chicken').value) || 0;
+    tuckshopStock['Jerk Patty']    = parseInt(document.getElementById('tuckshop-stock-jerk').value)    || 0;
     renderTuckshopProducts();
     rebuildTuckshopOrderDropdowns();
     document.getElementById('tuckshop-editor').classList.remove('open');
@@ -2578,7 +2586,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
       var inp = row.querySelector('input');
       if (sel && sel.options[sel.selectedIndex]) {
         var productName = sel.options[sel.selectedIndex].text;
-        if (productName === 'Beef Patty' || productName === 'Cheese Patty' || productName === 'Chicken Patty') {
+        if (productName === 'Beef Patty' || productName === 'Cheese Patty' || productName === 'Chicken Patty' || productName === 'Jerk Patty') {
           var amt = parseInt(inp.value) || 0;
           tuckshopStock[productName] = (tuckshopStock[productName] || 0) + amt;
           renderTuckshopProducts();
@@ -2590,7 +2598,7 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
   }
 
   function calcTuckshopTotal() {
-    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty', 'Jerk Patty'];
     var grand = 0;
     var totalRequested = {};
 
@@ -2745,7 +2753,7 @@ var price = parseFloat(sel.value) || 0;
     }
 
     // ── Bloquear si algún patty excede el stock disponible ──
-    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty'];
+    var PATTY_TYPES = ['Beef Patty', 'Cheese Patty', 'Chicken Patty', 'Jerk Patty'];
     var stockErrors = [];
     var totalRequested = {};
     rows.forEach(function(r) {
@@ -2852,7 +2860,7 @@ var price = parseFloat(sel.value) || 0;
           tuckshopStock = result.stock;
         } else {
           rows.forEach(function(r) {
-            if (r.product === 'Beef Patty' || r.product === 'Cheese Patty' || r.product === 'Chicken Patty') {
+            if (r.product === 'Beef Patty' || r.product === 'Cheese Patty' || r.product === 'Chicken Patty' || r.product === 'Jerk Patty') {
               tuckshopStock[r.product] = Math.max(0, (tuckshopStock[r.product] || 0) - r.amount);
             }
           });
