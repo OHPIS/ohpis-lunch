@@ -254,7 +254,7 @@
     <div class="school-name">Old Harbour Primary &amp; Infant School</div>
     <div class="school-sub">Old Harbour, Saint Catherine Parish, Jamaica</div>
     <div class="header-tag">Daily Lunch Order</div>
-    <div class="app-version">Version 1.6.8 · Oct 26 2026</div>
+    <div class="app-version">Version 1.6.9 · Nov 18 2026</div>
   </div>
 </header>
 
@@ -1825,7 +1825,9 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
 
     var attemptSubmit = function() {
       var controller = new AbortController();
-      var timer = setTimeout(function(){ controller.abort(); }, 8000);
+      // Office espera 25 s: si Cloud Run está "dormido" tarda en responder, y
+      // reenviar antes de tiempo duplicaba la orden. Classes sigue igual (8 s).
+      var timer = setTimeout(function(){ controller.abort(); }, prefix === 'o' ? 25000 : 8000);
       return fetch(LUNCH_BACKEND_URL, { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'text/plain' }, signal: controller.signal })
         .then(function(r) { clearTimeout(timer); return r.text(); })
         .catch(function(err) { clearTimeout(timer); throw err; });
@@ -1844,6 +1846,14 @@ function _reloadMenuUntilFresh(expectedCheck, maxTries) {
         try {
           alreadySaved = await _orderExistsForKey(LUNCH_SHEET_ID, sheetTab, checkKeyPre);
         } catch(preCheckErr) {}
+        // Office: la primera orden puede seguir guardándose. Revisar unas veces
+        // más (cada 2 s, hasta ~8 s) antes de reenviarla, para no duplicarla.
+        if (prefix === 'o') {
+          for (var chk = 0; chk < 4 && !alreadySaved; chk++) {
+            await new Promise(function(res){ setTimeout(res, 2000); });
+            try { alreadySaved = await _orderExistsForKey(LUNCH_SHEET_ID, sheetTab, checkKeyPre); } catch(e2) {}
+          }
+        }
         if (alreadySaved) {
           showSuccess(statusEl, form, prefix, grandTotal);
           btn.disabled    = false;
